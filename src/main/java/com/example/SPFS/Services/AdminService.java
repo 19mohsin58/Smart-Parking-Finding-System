@@ -37,6 +37,11 @@ public class AdminService {
 
     // --- CRUD Create: Add Lot and Initialize Redis ---
     public ParkingLot createLot(ParkingLot lot, String cityName) {
+        // 0. Constraint: Check if parking lot with same name exists
+        if (parkingLotRepository.existsByParkingName(lot.getParkingName())) {
+            throw new RuntimeException("Error: Parking lot with name '" + lot.getParkingName() + "' already exists.");
+        }
+
         // 1. Save the new Lot and get its generated ID
         // Ensure the lot object has NO cityId initially.
         ParkingLot savedLot = parkingLotRepository.save(lot); // Lot is now in DB with _id
