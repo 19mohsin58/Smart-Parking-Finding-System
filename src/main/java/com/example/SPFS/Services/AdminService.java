@@ -44,6 +44,7 @@ public class AdminService {
 
         // 1. Save the new Lot and get its generated ID
         // Ensure the lot object has NO cityId initially.
+        lot.setAvailableSlots(lot.getTotalCapacity());
         ParkingLot savedLot = parkingLotRepository.save(lot); // Lot is now in DB with _id
 
         // 2. Find or Create the City Document (Crucial Linking Step)
