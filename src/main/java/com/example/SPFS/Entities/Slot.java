@@ -1,19 +1,14 @@
 package com.example.SPFS.Entities;
 
 import lombok.Data;
-import java.util.List;
-
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Data
-@Document(collection = "cities")
-public class City {
+@Document(collection = "slots")
+public class Slot {
     @Id
     private String id;
-    private String cityName;
-    private String country;
-
-    private List<String> parkingLotIds;
-    // Getters and Setters
+    private String slotNumber; // e.g., "A-1"
+    private String status; // e.g., "AVAILABLE", "OCCUPIED"
 }

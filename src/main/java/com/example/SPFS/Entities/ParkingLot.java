@@ -13,6 +13,5 @@ public class ParkingLot {
     private String parkingName;
     private String fullAddress;
     private int totalCapacity;
-    private String cityId;
     private List<String> slotIds; // Document Linking (Strategy I)
 }
