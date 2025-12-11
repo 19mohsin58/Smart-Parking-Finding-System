@@ -6,6 +6,7 @@ import com.example.SPFS.Repositories.UserRepository;
 import com.example.SPFS.Repositories.CityRepository;
 import com.example.SPFS.Repositories.ParkingLotRepository;
 import com.example.SPFS.Entities.ParkingLot;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.List;
 
@@ -27,6 +28,8 @@ public class PublicController {
     private CityRepository cityRepository;
     @Autowired
     private ParkingLotRepository parkingLotRepository;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/register")
     public ResponseEntity<Object> registerUser(@RequestBody Users user) {
@@ -64,6 +67,15 @@ public class PublicController {
             return ResponseEntity.ok(List.of());
         }
         List<ParkingLot> parkingLots = parkingLotRepository.findAllById(city.getParkingLotIds());
+
+        // Update with live availability from Redis
+        for (ParkingLot lot : parkingLots) {
+            Long size = redisTemplate.opsForSet().size("lot:slots:" + lot.getId());
+            if (size != null) {
+                lot.setAvailableSlots(size.intValue());
+            }
+        }
+
         return ResponseEntity.ok(parkingLots);
     }
 

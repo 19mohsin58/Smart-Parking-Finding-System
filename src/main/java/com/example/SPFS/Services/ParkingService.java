@@ -10,7 +10,8 @@ public class ParkingService {
     private RedisTemplate<String, Object> redisTemplate;
 
     public int getAvailableSlots(String lotId) {
-        // Fetch current live count from Redis Hash
-        return (Integer) redisTemplate.opsForHash().get("lot:meta:" + lotId, "available");
+        // Fetch current live count from Redis Set (SCARD)
+        Long size = redisTemplate.opsForSet().size("lot:slots:" + lotId);
+        return size != null ? size.intValue() : 0;
     }
 }

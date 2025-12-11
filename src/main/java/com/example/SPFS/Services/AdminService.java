@@ -84,8 +84,11 @@ public class AdminService {
         java.util.List<com.example.SPFS.Entities.Slot> savedSlots = slotRepository.saveAll(newSlots);
 
         // Extract IDs
-        for (com.example.SPFS.Entities.Slot s : savedSlots) {
+        String[] slotNumbers = new String[savedSlots.size()];
+        for (int i = 0; i < savedSlots.size(); i++) {
+            com.example.SPFS.Entities.Slot s = savedSlots.get(i);
             slotIds.add(s.getId());
+            slotNumbers[i] = s.getSlotNumber();
         }
 
         // Update ParkingLot with Slot IDs
@@ -94,10 +97,10 @@ public class AdminService {
         // -------------------------------------------
 
         // 5. Initialize Redis Hash (Consistency Check)
-        redisTemplate.opsForHash().put(
-                "lot:meta:" + savedLot.getId(),
-                "currentAvailable",
-                savedLot.getTotalCapacity());
+        // 5. Initialize Redis Set (Consistency Check)
+        redisTemplate.opsForSet().add(
+                "lot:slots:" + savedLot.getId(),
+                (Object[]) slotNumbers);
 
         return savedLot;
     }
@@ -108,9 +111,10 @@ public class AdminService {
 
         // Merge the Redis live count into the MongoDB object structure
         for (ParkingLot lot : lots) {
-            Object available = redisTemplate.opsForHash().get("lot:meta:" + lot.getId(), "currentAvailable");
+            Long available = redisTemplate.opsForSet().size("lot:slots:" + lot.getId());
 
             if (available != null) {
+                lot.setAvailableSlots(available.intValue());
                 System.out.println("DEBUG: Lot " + lot.getParkingName() + " Live Redis Count: " + available);
             }
         }
