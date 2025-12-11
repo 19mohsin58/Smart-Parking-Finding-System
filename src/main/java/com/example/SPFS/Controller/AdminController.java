@@ -49,4 +49,14 @@ public class AdminController {
         Optional<Users> user = adminService.findUserByEmail(email);
         return user.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
+
+    @DeleteMapping("/lots/{id}")
+    public ResponseEntity<?> deleteParkingLot(@PathVariable String id) {
+        try {
+            adminService.deleteParkingLot(id);
+            return ResponseEntity.ok("Parking Lot deleted successfully (Cascading to Slots, Reservations, and City).");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

@@ -8,12 +8,17 @@ import com.example.SPFS.Repositories.ParkingLotRepository;
 import com.example.SPFS.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
+import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -133,4 +138,108 @@ public class AdminService {
     public Optional<Users> findUserByEmail(String email) {
         return userRepository.findByEmail(email);
     }
+
+    @Autowired
+    private com.example.SPFS.Repositories.ReservationRepository reservationRepository;
+
+    // --- DELETE PARKING LOT (Cascading) ---
+    public void deleteParkingLot(String parkingLotId) {
+        // 1. Fetch Lot
+        ParkingLot lot = parkingLotRepository.findById(parkingLotId)
+                .orElseThrow(() -> new RuntimeException("Parking Lot not found"));
+
+        // 2. Delete Slots
+        if (lot.getSlotIds() != null && !lot.getSlotIds().isEmpty()) {
+            slotRepository.deleteAllById(lot.getSlotIds());
+        }
+
+        // 3. Cancel Active Reservations & Release User Locks
+        List<com.example.SPFS.Entities.Reservations> activeReservations = reservationRepository
+                .findByParkingLotIdAndReservationStatus(parkingLotId, "ACTIVE");
+
+        for (com.example.SPFS.Entities.Reservations res : activeReservations) {
+            // Update DB Status
+            res.setReservationStatus("CANCELLED");
+            reservationRepository.save(res);
+
+            // Release User Lock in Redis
+            String userLockKey = "user:active_booking:" + res.getUserId();
+            redisTemplate.delete(userLockKey);
+        }
+
+        // 4. Update City (Remove Lot ID)
+        Query query = new Query(Criteria.where("parkingLotIds").is(parkingLotId));
+        Update update = new Update().pull("parkingLotIds", parkingLotId);
+        mongoTemplate.updateMulti(query, update, City.class);
+
+        // 5. Delete Redis Key for the Lot
+        redisTemplate.delete("lot:slots:" + parkingLotId);
+
+        // 6. Delete Lot
+        parkingLotRepository.deleteById(parkingLotId);
+    }
+
+    // 1. Average Parking Duration (Arithmetic: $subtract, $divide, $avg) - REPLACES
+    // Lookup
+    public List<Map> getAverageParkingDuration() {
+        Aggregation aggregation = Aggregation.newAggregation(
+                // Step 1: Calculate duration in hours (endTime - startTime) / 1000 / 3600
+                // Note: In Mongo, subtracting dates gives milliseconds.
+                Aggregation.project("parkingLotId")
+                        .andExpression("(endTime - startTime) / 3600000").as("durationHours"),
+
+                // Step 2: Group by parking lot and calculate average
+                Aggregation.group("parkingLotId").avg("durationHours").as("avgDuration"),
+
+                // Step 3: Sort by longest duration
+                Aggregation.sort(org.springframework.data.domain.Sort.Direction.DESC, "avgDuration"));
+
+        AggregationResults<Map> results = mongoTemplate.aggregate(aggregation, "reservations", Map.class);
+        return results.getMappedResults();
+    }
+
+    // 2. Peak Booking Hours (Temporal Extraction: $datePart/project)
+    public List<Map> getPeakBookingHours() {
+        Aggregation aggregation = Aggregation.newAggregation(
+                // Step 1: Extract the hour from startTime
+                Aggregation.project()
+                        .andExpression("hour(startTime)").as("hourOfDay"),
+                // Step 2: Group by the extracted hour
+                Aggregation.group("hourOfDay").count().as("count"),
+                // Step 3: Sort by hour to show a daily timeline
+                Aggregation.sort(org.springframework.data.domain.Sort.Direction.ASC, "_id"));
+
+        AggregationResults<Map> results = mongoTemplate.aggregate(aggregation, "reservations", Map.class);
+        return results.getMappedResults();
+    }
+
+    // 3. User Loyalty Distribution (Statistical: $bucket - Manual implementation
+    // via
+    // Conditional)
+    public List<Map> getUserLoyaltyDistribution() {
+        // Since $bucket can be complex with MongoTemplate, we use a Facet or
+        // Conditional
+        // Project
+        // approach which is clearer for "well-done" segmentation.
+
+        Aggregation aggregation = Aggregation.newAggregation(
+                // Step 1: Calculate total bookings per user
+                Aggregation.group("userId").count().as("bookingCount"),
+
+                // Step 2: Categorize into Tiers using Conditional Logic ($switch / $cond)
+                Aggregation.project("bookingCount")
+                        .and(ConditionalOperators.when(Criteria.where("bookingCount").gte(20))
+                                .then("GOLD")
+                                .otherwise(ConditionalOperators.when(Criteria.where("bookingCount").gte(5))
+                                        .then("SILVER")
+                                        .otherwise("BRONZE")))
+                        .as("loyaltyTier"),
+
+                // Step 3: Group by the new Tier field to get the specific counts
+                Aggregation.group("loyaltyTier").count().as("userCount"));
+
+        AggregationResults<Map> results = mongoTemplate.aggregate(aggregation, "reservations", Map.class);
+        return results.getMappedResults();
+    }
+
 }

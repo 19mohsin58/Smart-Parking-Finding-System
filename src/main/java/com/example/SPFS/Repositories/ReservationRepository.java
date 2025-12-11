@@ -16,4 +16,6 @@ public interface ReservationRepository extends MongoRepository<Reservations, Str
     // Optimized for "History" tab (Everything NOT active, e.g. Cancelled/Completed,
     // sorted by newest)
     List<Reservations> findByUserIdAndReservationStatusNotOrderByEndTimeDesc(String userId, String status);
+
+    List<Reservations> findByParkingLotIdAndReservationStatus(String parkingLotId, String status);
 }
