@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # --- MONGODB REPLICA SET (3 Nodes) ---
+  mongo1:
+    image: mongo:latest
+    container_name: mongo1
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0', members:[{_id:0, host:'mongo1:27017'},{_id:1, host:'mongo2:27017'},{_id:2, host:'mongo3:27017'}]}) }" | mongosh --port 27017 --quiet
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    networks:
+      - spfs-net
+
+  mongo2:
+    image: mongo:latest
+    container_name: mongo2
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27018:27017"
+    networks:
+      - spfs-net
+
+  mongo3:
+    image: mongo:latest
+    container_name: mongo3
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27019:27017"
+    networks:
+      - spfs-net
+
+  # --- REDIS REPLICATION (Master + 2 Replicas) ---
+  redis-master:
+    image: redis:latest
+    container_name: redis-master
+    command: redis-server --port 6379
+    ports:
+      - "6379:6379"
+    networks:
+      - spfs-net
+
+  redis-replica-1:
+    image: redis:latest
+    container_name: redis-replica-1
+    command: redis-server --port 6380 --replicaof redis-master 6379
+    ports:
+      - "6380:6380"
+    depends_on:
+      - redis-master
+    networks:
+      - spfs-net
+
+  redis-replica-2:
+    image: redis:latest
+    container_name: redis-replica-2
+    command: redis-server --port 6381 --replicaof redis-master 6379
+    ports:
+      - "6381:6381"
+    depends_on:
+      - redis-master
+    networks:
+      - spfs-net
+
+networks:
+  spfs-net:
+    driver: bridge

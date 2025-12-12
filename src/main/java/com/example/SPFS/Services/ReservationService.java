@@ -1,15 +1,12 @@
 package com.example.SPFS.Services;
 
 import com.example.SPFS.Entities.Reservations;
-import com.example.SPFS.Entities.Users;
 import com.example.SPFS.Repositories.ReservationRepository;
-import com.example.SPFS.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -22,7 +19,10 @@ public class ReservationService {
     private ReservationRepository reservationRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private com.example.SPFS.Repositories.ParkingLotRepository parkingLotRepository;
+
+    @Autowired
+    private com.example.SPFS.Repositories.SlotRepository slotRepository;
 
     public Reservations bookSlot(String userId, String parkingLotId, String vehicleNumber, int hours) {
         // 0. Enforce Single Active Booking Constraint using Redis
@@ -46,6 +46,24 @@ public class ReservationService {
 
             String slotNumber = slotObj.toString();
 
+            // 1.5 Sync DB Status (Mark Slot as BOOKED) - FIX for "Available" bug
+            com.example.SPFS.Entities.ParkingLot lot = parkingLotRepository.findById(parkingLotId)
+                    .orElseThrow(() -> new RuntimeException("Parking Lot not found"));
+
+            // Inefficient but necessary due to schema: Find the specific slot by checking
+            // all slots of this lot
+            // Ideally, Slot should have parkingLotId, but we work with what we have.
+            List<com.example.SPFS.Entities.Slot> lotSlots = slotRepository.findAllById(lot.getSlotIds());
+            com.example.SPFS.Entities.Slot dbSlot = lotSlots.stream()
+                    .filter(s -> s.getSlotNumber().equals(slotNumber))
+                    .findFirst()
+                    .orElse(null);
+
+            if (dbSlot != null) {
+                dbSlot.setStatus("BOOKED");
+                slotRepository.save(dbSlot); // Persist status change
+            }
+
             // 2. Create Reservation in DB
             Reservations reservation = new Reservations();
             reservation.setUserId(userId);
@@ -58,25 +76,13 @@ public class ReservationService {
 
             Reservations savedReservation = reservationRepository.save(reservation);
 
-            // 3. Update User
-            Users user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-            if (user.getReservationIds() == null) {
-                user.setReservationIds(new ArrayList<>());
-            }
-            user.getReservationIds().add(savedReservation.getId());
-            userRepository.save(user);
+            // 3. Update User (REMOVED)
 
             return savedReservation;
 
         } catch (Exception e) {
             // ROLLBACK: If anything fails (Lot full, DB error, etc.), release the User Lock
             redisTemplate.delete(userLockKey);
-            // If we successfully popped a slot but failed later, we should theoretically
-            // return the slot too.
-            // However, ensuring slot return on DB failure is complex (requires knowing if
-            // we popped it).
-            // For now, prioritizng the user lock release.
-            // (Ideally, we would also push the slot back if slotObj was not null)
             throw e;
         }
     }
@@ -92,6 +98,21 @@ public class ReservationService {
         // 1. Update DB Status
         reservation.setReservationStatus("CANCELLED");
         reservationRepository.save(reservation);
+
+        // 1.5 Sync DB Status (Mark Slot as AVAILABLE)
+        com.example.SPFS.Entities.ParkingLot lot = parkingLotRepository.findById(reservation.getParkingLotId())
+                .orElseThrow(() -> new RuntimeException("Parking Lot not found"));
+
+        List<com.example.SPFS.Entities.Slot> lotSlots = slotRepository.findAllById(lot.getSlotIds());
+        com.example.SPFS.Entities.Slot dbSlot = lotSlots.stream()
+                .filter(s -> s.getSlotNumber().equals(reservation.getSlotId()))
+                .findFirst()
+                .orElse(null);
+
+        if (dbSlot != null) {
+            dbSlot.setStatus("AVAILABLE");
+            slotRepository.save(dbSlot);
+        }
 
         // 2. Return Slot to Redis
         String slotKey = "lot:slots:" + reservation.getParkingLotId();
