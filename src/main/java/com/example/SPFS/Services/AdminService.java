@@ -41,7 +41,7 @@ public class AdminService {
     private MongoTemplate mongoTemplate;
 
     // --- CRUD Create: Add Lot and Initialize Redis ---
-    public ParkingLot createLot(ParkingLot lot, String cityName) {
+    public ParkingLot createLot(ParkingLot lot, String cityName, String state, String country) {
         // 0. Constraint: Check if parking lot with same name exists
         if (parkingLotRepository.existsByParkingName(lot.getParkingName())) {
             throw new RuntimeException("Error: Parking lot with name '" + lot.getParkingName() + "' already exists.");
@@ -53,24 +53,31 @@ public class AdminService {
         ParkingLot savedLot = parkingLotRepository.save(lot); // Lot is now in DB with _id
 
         // 2. Find or Create the City Document (Crucial Linking Step)
-        City city = cityRepository.findByCityName(cityName)
+        // Optimization: Use the Compound Index (Country -> State)
+        java.util.List<City> citiesInState = cityRepository.findByCountryAndState(country, state);
+
+        City city = citiesInState.stream()
+                .filter(c -> c.getCityName().equalsIgnoreCase(cityName))
+                .findFirst()
                 .orElseGet(() -> {
-                    // City doesn't exist, create it with an empty array
+                    // City doesn't exist in this State/Country, create it
                     City newCity = new City();
                     newCity.setCityName(cityName);
+                    newCity.setState(state);
+                    newCity.setCountry(country);
                     return cityRepository.save(newCity);
                 });
 
         // 3. Update the City document with the new Lot ID (Document Linking)
         // $push the Lot ID into the City's parkingLotIds array
-        Query query = new Query(Criteria.where("id").is(city.getId()));
-        Update update = new Update().push("parkingLotIds", savedLot.getId());
-        mongoTemplate.updateFirst(query, update, City.class);
-
-        // 4. Update the saved Lot document with the back-reference City ID (REMOVED as
-        // per user request)
-        // savedLot.setCityId(city.getId());
-        // parkingLotRepository.save(savedLot); // Update the Lot with cityId
+        // 3. Update the City document with the new Lot ID (Document Linking)
+        // Replaced mongoTemplate $push with repository.save() to handle schema mismatch
+        // (String vs Array)
+        if (city.getParkingLotIds() == null) {
+            city.setParkingLotIds(new java.util.ArrayList<>());
+        }
+        city.getParkingLotIds().add(savedLot.getId());
+        cityRepository.save(city); // Overwrites the document, fixing the field type if it was corrupted
 
         // --- NEW STEP: Automatic Slot Generation ---
         int capacity = savedLot.getTotalCapacity();
@@ -242,4 +249,69 @@ public class AdminService {
         return results.getMappedResults();
     }
 
+    // 4. Sync Redis with MongoDB & Fix Schema Data
+    public void syncDatabaseToRedis() {
+        // --- 1. Fix Schema Corruption (String -> Array) for Cities and ParkingLots ---
+        fixCollectionSchema("cities", "parkingLotIds");
+        fixCollectionSchema("parking_lots", "slotIds");
+
+        // --- 2. Sync Redis ---
+        List<ParkingLot> allLots = parkingLotRepository.findAll();
+        for (ParkingLot lot : allLots) {
+            String redisKey = "lot:slots:" + lot.getId();
+
+            // Only refill if empty or logic demands. Checking key existence prevents
+            // overwriting.
+            if (!redisTemplate.hasKey(redisKey) && lot.getSlotIds() != null && !lot.getSlotIds().isEmpty()) {
+
+                // Fetch full slot objects using the list of IDs
+                List<com.example.SPFS.Entities.Slot> slots = slotRepository.findAllById(lot.getSlotIds());
+
+                // Filter for AVAILABLE slots
+                List<String> availableSlotNumbers = slots.stream()
+                        .filter(s -> "AVAILABLE".equals(s.getStatus()))
+                        .map(com.example.SPFS.Entities.Slot::getSlotNumber)
+                        .toList();
+
+                if (!availableSlotNumbers.isEmpty()) {
+                    redisTemplate.opsForSet().add(redisKey, availableSlotNumbers.toArray());
+                    System.out.println(
+                            "Restored " + availableSlotNumbers.size() + " slots for Lot: " + lot.getParkingName());
+                }
+            }
+        }
+    }
+
+    private void fixCollectionSchema(String collectionName, String fieldName) {
+        try {
+            var collection = mongoTemplate.getCollection(collectionName);
+            for (org.bson.Document doc : collection.find()) {
+                Object fieldValue = doc.get(fieldName);
+                if (fieldValue instanceof String) {
+                    String sVal = (String) fieldValue;
+                    if (sVal.startsWith("[") && sVal.endsWith("]")) {
+                        // Parse stringified array safely
+                        String content = sVal.substring(1, sVal.length() - 1);
+                        if (content.trim().isEmpty()) {
+                            doc.put(fieldName, java.util.Collections.emptyList());
+                        } else {
+                            // Split by comma, trim spaces, and remove single quotes 'id'
+                            List<String> fixedList = java.util.Arrays.stream(content.split(","))
+                                    .map(String::trim)
+                                    .map(id -> id.replaceAll("^'|'$", "")) // Remove surrounding single quotes
+                                    .filter(id -> !id.isEmpty())
+                                    .collect(java.util.stream.Collectors.toList());
+                            doc.put(fieldName, fixedList);
+                        }
+                        collection.replaceOne(new org.bson.Document("_id", doc.get("_id")), doc);
+                        System.out.println("Fixed corrupted " + fieldName + " in collection " + collectionName
+                                + " for _id: " + doc.get("_id"));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fixing schema for " + collectionName + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 }

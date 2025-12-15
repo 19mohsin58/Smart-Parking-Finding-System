@@ -34,4 +34,43 @@ public class UserController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @Autowired
+    private com.example.SPFS.Repositories.UserRepository userRepository;
+    @Autowired
+    private com.example.SPFS.Repositories.CityRepository cityRepository;
+    @Autowired
+    private com.example.SPFS.Repositories.ParkingLotRepository parkingLotRepository;
+    @Autowired
+    private org.springframework.data.redis.core.RedisTemplate<String, Object> redisTemplate;
+
+    @GetMapping("/my-parking-lots")
+    public ResponseEntity<?> getMyParkingLots() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        Users user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getCityCollectionId() == null) {
+            return ResponseEntity.badRequest().body("No city assigned to user.");
+        }
+
+        com.example.SPFS.Entities.City city = cityRepository.findById(user.getCityCollectionId()).orElse(null);
+        if (city == null || city.getParkingLotIds() == null || city.getParkingLotIds().isEmpty()) {
+            return ResponseEntity.ok(java.util.List.of());
+        }
+
+        java.util.List<com.example.SPFS.Entities.ParkingLot> parkingLots = parkingLotRepository
+                .findAllById(city.getParkingLotIds());
+
+        // Update with live availability from Redis
+        for (com.example.SPFS.Entities.ParkingLot lot : parkingLots) {
+            Long size = redisTemplate.opsForSet().size("lot:slots:" + lot.getId());
+            if (size != null) {
+                lot.setAvailableSlots(size.intValue());
+            }
+        }
+
+        return ResponseEntity.ok(parkingLots);
+    }
 }

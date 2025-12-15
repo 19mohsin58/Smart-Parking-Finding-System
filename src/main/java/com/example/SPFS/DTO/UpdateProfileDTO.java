@@ -6,6 +6,6 @@ import lombok.Data;
 public class UpdateProfileDTO {
     private String fullName;
     private String email;
-    private String cityId;
+    private String cityCollectionId;
     private String password;
 }

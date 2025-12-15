@@ -32,14 +32,38 @@ public class PublicController {
     private RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/register")
-    public ResponseEntity<Object> registerUser(@RequestBody Users user) {
-        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+    public ResponseEntity<Object> registerUser(@RequestBody com.example.SPFS.DTO.RegisterRequestDTO registerRequest) {
+        if (userRepository.findByEmail(registerRequest.getEmail()).isPresent()) {
             return new ResponseEntity<>("Email already taken.", HttpStatus.BAD_REQUEST);
         }
 
+        Users user = new Users();
+        user.setFullName(registerRequest.getFullName());
+        user.setEmail(registerRequest.getEmail());
+
         // 1. Hash Password and Assign Default Role
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         user.setRole("USER");
+
+        // 2. Resolve City ID from Selection
+        // Use the efficient Compound Index lookup
+        if (registerRequest.getCountry() != null && registerRequest.getState() != null
+                && registerRequest.getCityName() != null) {
+            java.util.List<City> cities = cityRepository.findByCountryAndState(registerRequest.getCountry(),
+                    registerRequest.getState());
+            City matchedCity = cities.stream()
+                    .filter(c -> c.getCityName().equalsIgnoreCase(registerRequest.getCityName()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (matchedCity != null) {
+                user.setCityCollectionId(matchedCity.getId());
+            } else {
+                // Fallback or Error? For now, we allow null cityId or log warning.
+                // Usually means Frontend sent invalid data or admin hasn't imported that city
+                // yet.
+            }
+        }
 
         Users savedUser = userRepository.save(user);
         return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
@@ -50,11 +74,46 @@ public class PublicController {
         return "Welcome, Basic User! Your data will load here.";
     }
 
+    @Autowired
+    private org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
+
+    // --- Cascading Dropdown APIs ---
+
+    @GetMapping("/countries")
+    public ResponseEntity<List<String>> getCountries() {
+        // Return distinct countries
+        List<String> countries = mongoTemplate.findDistinct(new org.springframework.data.mongodb.core.query.Query(),
+                "country", City.class, String.class);
+        return ResponseEntity.ok(countries);
+    }
+
+    @GetMapping("/states")
+    public ResponseEntity<List<String>> getStates(@RequestParam String country) {
+        // Return distinct states for the given country
+        org.springframework.data.mongodb.core.query.Query query = new org.springframework.data.mongodb.core.query.Query();
+        query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("country").is(country));
+        List<String> states = mongoTemplate.findDistinct(query, "state", City.class, String.class);
+        return ResponseEntity.ok(states);
+    }
+
     @GetMapping("/cities")
-    public ResponseEntity<List<String>> getAllCities() {
-        return ResponseEntity.ok(cityRepository.findAll().stream()
-                .map(City::getCityName)
-                .toList());
+    public ResponseEntity<List<String>> getCities(@RequestParam(required = false) String country,
+            @RequestParam(required = false) String state) {
+
+        // If state/country provided, filter. Else return all cities (legacy/fallback)
+        if (country != null && state != null) {
+            org.springframework.data.mongodb.core.query.Query query = new org.springframework.data.mongodb.core.query.Query();
+            query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("country").is(country)
+                    .and("state").is(state));
+            // We return the actual cityNames, distinctly
+            return ResponseEntity.ok(mongoTemplate.findDistinct(query, "cityName", City.class, String.class));
+        }
+
+        // Original behavior fallback (not recommended for 20k records but keeping for
+        // backward compatibility if needed)
+        // But let's optimize to just return distinct cityNames anyway
+        return ResponseEntity.ok(mongoTemplate.findDistinct(new org.springframework.data.mongodb.core.query.Query(),
+                "cityName", City.class, String.class));
     }
 
     @GetMapping("/cities/{cityName}/parking-lots")

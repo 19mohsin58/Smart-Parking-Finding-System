@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPFS Admin Dashboard (Mockup)</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-section" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded shadow-md w-96">
+            <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">Admin Login</h2>
+            <form onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                    <input type="email" value="admin@spfs.com" class="w-full px-3 py-2 border rounded">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                    <input type="password" value="admin123" class="w-full px-3 py-2 border rounded">
+                </div>
+                <button type="submit"
+                    class="w-full bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700">Login (Mock)</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- DASHBOARD SCREEN -->
+    <div id="dashboard-section" class="hidden">
+        <!-- Navbar -->
+        <nav class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+                <h1 class="text-xl font-bold text-gray-800">SPFS Admin Dashboard <span
+                        class="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded ml-2">Demo Mode</span></h1>
+                <button onclick="handleLogout()" class="text-red-600 hover:text-red-800 float-right">Logout</button>
+            </div>
+        </nav>
+
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Tabs -->
+            <div class="flex border-b mb-6">
+                <button onclick="switchTab('manage')" id="tab-manage"
+                    class="px-4 py-2 text-blue-600 border-b-2 border-blue-600 font-semibold">Manage Parking</button>
+                <button onclick="switchTab('analytics')" id="tab-analytics"
+                    class="px-4 py-2 text-gray-500 hover:text-blue-600 font-semibold">Analytics Pipelines</button>
+            </div>
+
+            <!-- Manage Tab -->
+            <div id="view-manage">
+                <!-- Add Lot Form -->
+                <div class="bg-white p-6 rounded shadow mb-6">
+                    <h3 class="text-lg font-bold mb-4">Add New Parking Lot</h3>
+                    <form onsubmit="handleAddLot(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input type="text" placeholder="Parking Name" class="border p-2 rounded" required>
+                        <input type="text" placeholder="Address" class="border p-2 rounded" required>
+                        <input type="number" placeholder="Capacity" class="border p-2 rounded" required>
+                        <input type="text" placeholder="Country" class="border p-2 rounded" required>
+                        <input type="text" placeholder="State" class="border p-2 rounded" required>
+                        <input type="text" placeholder="City Name" class="border p-2 rounded" required>
+                        <button type="submit"
+                            class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 md:col-start-3">Create
+                            Lot</button>
+                    </form>
+                </div>
+
+                <!-- Controls: Filter & Search -->
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center space-x-2">
+                        <label class="font-semibold text-gray-700">Filter by City:</label>
+                        <select id="city-filter" onchange="applyFilters()" class="border p-2 rounded bg-white">
+                            <option value="ALL">All Cities</option>
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        Showing <span id="showing-count">0</span> lots
+                    </div>
+                </div>
+
+                <!-- Lots Table -->
+                <div class="bg-white p-6 rounded shadow">
+                    <h3 class="text-lg font-bold mb-4">Existing Parking Lots</h3>
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-200">
+                                <th class="p-3 border-b">Details</th>
+                                <th class="p-3 border-b">City</th> <!-- NEW COLUMN -->
+                                <th class="p-3 border-b">Status</th>
+                                <th class="p-3 border-b">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lots-table-body">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
+
+                    <!-- Pagination Controls -->
+                    <div class="flex justify-between items-center mt-4">
+                        <button onclick="changePage(-1)" id="btn-prev"
+                            class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">Previous</button>
+                        <span class="text-sm text-gray-600">Page <span id="current-page">1</span> of <span
+                                id="total-pages">1</span></span>
+                        <button onclick="changePage(1)" id="btn-next"
+                            class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">Next</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="view-analytics" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Chart 1: Peak Hours -->
+                    <div class="bg-white p-6 rounded shadow">
+                        <h3 class="text-lg font-bold mb-4 text-purple-700">Peak Booking Hours</h3>
+                        <canvas id="peakHoursChart"></canvas>
+                        <p class="text-xs text-gray-500 mt-2">Aggregated from Reservation History</p>
+                    </div>
+
+                    <!-- Chart 2: User Loyalty -->
+                    <div class="bg-white p-6 rounded shadow">
+                        <h3 class="text-lg font-bold mb-4 text-yellow-600">User Loyalty Distribution</h3>
+                        <canvas id="loyaltyChart"></canvas>
+                        <p class="text-xs text-gray-500 mt-2">Segmentation based on booking frequency</p>
+                    </div>
+
+                    <!-- Table 3: Avg Duration -->
+                    <div class="bg-white p-6 rounded shadow md:col-span-2">
+                        <h3 class="text-lg font-bold mb-4 text-blue-700">Average Parking Duration</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-blue-50">
+                                    <tr>
+                                        <th class="p-3">Parking Lot ID</th>
+                                        <th class="p-3">Avg Duration (Hours)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="avg-duration-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- MOCK DATA (Expanded for Pagination) ---
+        const MOCK_LOTS = [
+            { id: '1', parkingName: 'City Center Mall', city: 'Pisa', fullAddress: '123 Main St', availableSlots: 15, totalCapacity: 200 },
+            { id: '2', parkingName: 'Station West', city: 'Pisa', fullAddress: '45 Railway Ave', availableSlots: 2, totalCapacity: 50 },
+            { id: '3', parkingName: 'Airport Long Term', city: 'Pisa', fullAddress: 'Terminal 1', availableSlots: 500, totalCapacity: 1200 },
+            { id: '4', parkingName: 'University Campus', city: 'Pisa', fullAddress: 'Via Diotisalvi', availableSlots: 0, totalCapacity: 100 },
+            { id: '5', parkingName: 'Duomo Park', city: 'Florence', fullAddress: 'Piazza del Duomo', availableSlots: 10, totalCapacity: 80 },
+            { id: '6', parkingName: 'Uffizi Garage', city: 'Florence', fullAddress: 'Via dei Leoni', availableSlots: 5, totalCapacity: 60 },
+            { id: '7', parkingName: 'Santa Maria Novella', city: 'Florence', fullAddress: 'Piazza Stazione', availableSlots: 120, totalCapacity: 300 },
+            { id: '8', parkingName: 'Ponte Vecchio Spot', city: 'Florence', fullAddress: 'Lungarno', availableSlots: 0, totalCapacity: 20 },
+            { id: '9', parkingName: 'Colosseum Park', city: 'Rome', fullAddress: 'Via dei Fori Imperiali', availableSlots: 20, totalCapacity: 150 },
+            { id: '10', parkingName: 'Termini Station', city: 'Rome', fullAddress: 'Piazza dei Cinquecento', availableSlots: 200, totalCapacity: 500 },
+            { id: '11', parkingName: 'Vatican Museums', city: 'Rome', fullAddress: 'Viale Vaticano', availableSlots: 15, totalCapacity: 100 },
+            { id: '12', parkingName: 'Trevi Fountain', city: 'Rome', fullAddress: 'Via delle Muratte', availableSlots: 0, totalCapacity: 30 },
+            { id: '13', parkingName: 'Navona Square', city: 'Rome', fullAddress: 'Piazza Navona', availableSlots: 5, totalCapacity: 40 },
+            { id: '14', parkingName: 'Pantheon Garage', city: 'Rome', fullAddress: 'Via della Rotonda', availableSlots: 8, totalCapacity: 25 },
+            { id: '15', parkingName: 'Central Park', city: 'Milan', fullAddress: 'Parco Sempione', availableSlots: 50, totalCapacity: 200 }
+        ];
+
+        const MOCK_PEAK_HOURS = [
+            { hourOfDay: 8, count: 45 },
+            { hourOfDay: 9, count: 120 },
+            { hourOfDay: 10, count: 85 },
+            { hourOfDay: 12, count: 60 },
+            { hourOfDay: 17, count: 180 },
+            { hourOfDay: 18, count: 150 },
+            { hourOfDay: 20, count: 90 }
+        ];
+
+        const MOCK_LOYALTY = [
+            { loyaltyTier: 'GOLD', userCount: 150 },
+            { loyaltyTier: 'SILVER', userCount: 450 },
+            { loyaltyTier: 'BRONZE', userCount: 2000 }
+        ];
+
+        const MOCK_DURATION = [
+            { parkingLotId: 'City Center Mall', avgDuration: 2.5 },
+            { parkingLotId: 'Airport Long Term', avgDuration: 72.0 },
+            { parkingLotId: 'Station West', avgDuration: 8.5 },
+            { parkingLotId: 'University Campus', avgDuration: 4.0 }
+        ];
+
+        // --- STATE ---
+        let currentPage = 1;
+        const ITEMS_PER_PAGE = 10;
+        let filteredLots = [...MOCK_LOTS];
+
+        // --- AUTH ---
+        function handleLogin(e) {
+            e.preventDefault();
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            initDashboard();
+        }
+
+        function handleLogout() {
+            location.reload();
+        }
+
+        // --- INIT ---
+        function initDashboard() {
+            populateCityFilter();
+            applyFilters(); // Loads initial table
+        }
+
+        function populateCityFilter() {
+            const cities = [...new Set(MOCK_LOTS.map(l => l.city))]; // Unique cities
+            const select = document.getElementById('city-filter');
+            cities.forEach(city => {
+                const opt = document.createElement('option');
+                opt.value = city;
+                opt.textContent = city;
+                select.appendChild(opt);
+            });
+        }
+
+        // --- FILTER & PAGINATION ---
+        function applyFilters() {
+            const city = document.getElementById('city-filter').value;
+
+            if (city === 'ALL') {
+                filteredLots = [...MOCK_LOTS];
+            } else {
+                filteredLots = MOCK_LOTS.filter(l => l.city === city);
+            }
+
+            currentPage = 1; // Reset to page 1 on filter change
+            renderTable();
+        }
+
+        function changePage(delta) {
+            const maxPage = Math.ceil(filteredLots.length / ITEMS_PER_PAGE);
+            const newPage = currentPage + delta;
+            if (newPage >= 1 && newPage <= maxPage) {
+                currentPage = newPage;
+                renderTable();
+            }
+        }
+
+        function renderTable() {
+            // Pagination Logic
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const pageItems = filteredLots.slice(startIndex, endIndex);
+            const maxPage = Math.ceil(filteredLots.length / ITEMS_PER_PAGE) || 1;
+
+            // Update UI Counters
+            document.getElementById('current-page').textContent = currentPage;
+            document.getElementById('total-pages').textContent = maxPage;
+            document.getElementById('showing-count').textContent = filteredLots.length;
+            document.getElementById('btn-prev').disabled = currentPage === 1;
+            document.getElementById('btn-next').disabled = currentPage === maxPage;
+
+            // Render Rows
+            const tbody = document.getElementById('lots-table-body');
+            tbody.innerHTML = '';
+
+            if (pageItems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No parking lots found.</td></tr>';
+                return;
+            }
+
+            pageItems.forEach(lot => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-gray-50";
+
+                const availClass = lot.availableSlots === 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
+
+                tr.innerHTML = `
+                    <td class="p-3">
+                        <div class="font-bold">${lot.parkingName}</div>
+                        <div class="text-sm text-gray-500">${lot.fullAddress}</div>
+                    </td>
+                    <td class="p-3">
+                         <span class="bg-gray-200 text-gray-800 px-2 py-1 rounded text-xs font-bold">${lot.city}</span>
+                    </td>
+                    <td class="p-3">
+                        <span class="${availClass} px-2 py-1 rounded text-sm font-bold">
+                            ${lot.availableSlots} / ${lot.totalCapacity} Available
+                        </span>
+                    </td>
+                    <td class="p-3">
+                        <button onclick="alert('Mock Delete: ${lot.parkingName}')" class="text-red-600 hover:text-red-900 font-bold">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- TABS ---
+        function switchTab(tab) {
+            if (tab === 'manage') {
+                document.getElementById('view-manage').classList.remove('hidden');
+                document.getElementById('view-analytics').classList.add('hidden');
+                document.getElementById('tab-manage').className = "px-4 py-2 text-blue-600 border-b-2 border-blue-600 font-semibold";
+                document.getElementById('tab-analytics').className = "px-4 py-2 text-gray-500 hover:text-blue-600 font-semibold";
+                // Don't reload everything, just show
+            } else {
+                document.getElementById('view-manage').classList.add('hidden');
+                document.getElementById('view-analytics').classList.remove('hidden');
+                document.getElementById('tab-analytics').className = "px-4 py-2 text-blue-600 border-b-2 border-blue-600 font-semibold";
+                document.getElementById('tab-manage').className = "px-4 py-2 text-gray-500 hover:text-blue-600 font-semibold";
+                loadAnalytics();
+            }
+        }
+
+        // --- ACTIONS (MOCK) ---
+        function handleAddLot(e) {
+            e.preventDefault();
+            // In a real app we would POST to API and then re-fetch
+            const newLot = {
+                id: Date.now().toString(),
+                parkingName: e.target[0].value,
+                fullAddress: e.target[1].value,
+                // Capacity is target[2], Country [3], State [4], City [5]
+                country: e.target[3].value,
+                state: e.target[4].value,
+                city: e.target[5].value,
+                availableSlots: parseInt(e.target[2].value), // Init as full capacity for demo
+                totalCapacity: parseInt(e.target[2].value)
+            };
+            MOCK_LOTS.unshift(newLot); // Add to front
+            alert("Lot Created (Mock)");
+            // Refresh filters and table
+            populateCityFilter(); // In case new city
+            applyFilters();
+            e.target.reset();
+        }
+
+        // --- ANALYTICS ---
+        function loadAnalytics() {
+            renderChart('peakHoursChart', 'bar', MOCK_PEAK_HOURS.map(d => d.hourOfDay + ':00'), MOCK_PEAK_HOURS.map(d => d.count), 'Avg Bookings');
+            renderChart('loyaltyChart', 'doughnut', MOCK_LOYALTY.map(d => d.loyaltyTier), MOCK_LOYALTY.map(d => d.userCount), 'Users');
+
+            const tbody = document.getElementById('avg-duration-body');
+            tbody.innerHTML = '';
+            MOCK_DURATION.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="p-3 border-b text-gray-700 font-medium">${d.parkingLotId}</td><td class="p-3 border-b font-mono font-bold text-blue-600">${d.avgDuration.toFixed(1)} hrs</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderChart(canvasId, type, labels, data, label) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (window[canvasId] instanceof Chart) window[canvasId].destroy();
+
+            window[canvasId] = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.6)',
+                            'rgba(239, 68, 68, 0.6)',
+                            'rgba(245, 158, 11, 0.6)',
+                            'rgba(16, 185, 129, 0.6)',
+                            'rgba(139, 92, 246, 0.6)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

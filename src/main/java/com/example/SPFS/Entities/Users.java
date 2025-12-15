@@ -13,6 +13,6 @@ public class Users {
     private String fullName;
     private String email;
     private String password; // Stored as Hashed value
-    private String cityId; // Link to cities collection
+    private String cityCollectionId; // Link to cities collection
     private String role; // "USER" or "ADMIN"
 }

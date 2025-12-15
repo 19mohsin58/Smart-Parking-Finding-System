@@ -16,7 +16,7 @@ public class Reservations {
     private String id;
     private String userId;
     private String parkingLotId;
-    private String slotId; // Example: "A-1"
+    private String slotId; // Stores MongoDB _id of the Slot document
     private String vehicleNumber;
 
     // Using LocalDateTime for easier calculations

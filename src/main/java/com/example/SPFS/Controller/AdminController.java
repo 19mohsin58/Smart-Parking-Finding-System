@@ -18,9 +18,10 @@ public class AdminController {
 
     // --- Parking Lot CRUD ---
     @PostMapping("/lots")
-    public ResponseEntity<ParkingLot> createParkingLot(@RequestBody ParkingLot lot, @RequestParam String cityName) {
+    public ResponseEntity<ParkingLot> createParkingLot(@RequestBody ParkingLot lot, @RequestParam String cityName,
+            @RequestParam String state, @RequestParam String country) {
         // Creates Lot in Mongo and initializes Redis counter
-        ParkingLot savedLot = adminService.createLot(lot, cityName);
+        ParkingLot savedLot = adminService.createLot(lot, cityName, state, country);
         return ResponseEntity.ok(savedLot);
     }
 
@@ -58,5 +59,13 @@ public class AdminController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // --- Bulk Import Helpers ---
+    @PostMapping("/sync-redis")
+    public ResponseEntity<String> syncRedisData() {
+        adminService.syncDatabaseToRedis();
+        return ResponseEntity
+                .ok("Redis synchronization started. Available slots are being restored for lots missing in Redis.");
     }
 }

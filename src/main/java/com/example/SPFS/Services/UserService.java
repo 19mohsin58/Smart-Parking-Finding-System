@@ -29,8 +29,8 @@ public class UserService {
             user.setEmail(dto.getEmail());
         }
 
-        if (dto.getCityId() != null && !dto.getCityId().isEmpty()) {
-            user.setCityId(dto.getCityId());
+        if (dto.getCityCollectionId() != null && !dto.getCityCollectionId().isEmpty()) {
+            user.setCityCollectionId(dto.getCityCollectionId());
         }
 
         if (dto.getPassword() != null && !dto.getPassword().isEmpty()) {

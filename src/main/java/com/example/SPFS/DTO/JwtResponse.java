@@ -8,13 +8,13 @@ public class JwtResponse {
     private String email;
     private String role;
     private String fullName;
-    private String cityId;
+    private String cityCollectionId;
 
-    public JwtResponse(String accessToken, String email, String role, String fullName, String cityId) {
+    public JwtResponse(String accessToken, String email, String role, String fullName, String cityCollectionId) {
         this.token = accessToken;
         this.email = email;
         this.role = role;
         this.fullName = fullName;
-        this.cityId = cityId;
+        this.cityCollectionId = cityCollectionId;
     }
 }
