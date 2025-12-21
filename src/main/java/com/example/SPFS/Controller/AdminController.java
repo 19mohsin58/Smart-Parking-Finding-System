@@ -26,9 +26,15 @@ public class AdminController {
     }
 
     @GetMapping("/lots")
-    public ResponseEntity<List<ParkingLot>> getAllParkingLots() {
+    public ResponseEntity<org.springframework.data.domain.Page<ParkingLot>> getAllParkingLots(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+
         // Reads Mongo data and merges with Redis live status
-        List<ParkingLot> lotsWithLiveStatus = adminService.getAllLotsWithLiveStatus();
+        org.springframework.data.domain.Page<ParkingLot> lotsWithLiveStatus = adminService
+                .getAllLotsWithLiveStatus(pageable);
         return ResponseEntity.ok(lotsWithLiveStatus);
     }
     // (Implement PUT/DELETE to complete CRUD)
@@ -68,4 +74,5 @@ public class AdminController {
         return ResponseEntity
                 .ok("Redis synchronization started. Available slots are being restored for lots missing in Redis.");
     }
+
 }

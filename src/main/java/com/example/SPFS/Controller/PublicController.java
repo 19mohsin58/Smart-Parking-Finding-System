@@ -6,7 +6,6 @@ import com.example.SPFS.Repositories.UserRepository;
 import com.example.SPFS.Repositories.CityRepository;
 import com.example.SPFS.Repositories.ParkingLotRepository;
 import com.example.SPFS.Entities.ParkingLot;
-import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.List;
 
@@ -29,12 +28,16 @@ public class PublicController {
     @Autowired
     private ParkingLotRepository parkingLotRepository;
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private org.springframework.data.redis.core.RedisTemplate<String, Object> redisTemplate;
+    @Autowired
+    private com.example.SPFS.Services.EmailService emailService;
 
     @PostMapping("/register")
     public ResponseEntity<Object> registerUser(@RequestBody com.example.SPFS.DTO.RegisterRequestDTO registerRequest) {
         if (userRepository.findByEmail(registerRequest.getEmail()).isPresent()) {
-            return new ResponseEntity<>("Email already taken.", HttpStatus.BAD_REQUEST);
+            return ResponseEntity
+                    .badRequest()
+                    .body(new com.example.SPFS.DTO.MessageResponse("Error: Email already taken!"));
         }
 
         Users user = new Users();
@@ -44,6 +47,11 @@ public class PublicController {
         // 1. Hash Password and Assign Default Role
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         user.setRole("USER");
+
+        // 1.5 Generate Verification Code (6 digits)
+        String code = String.valueOf((int) ((Math.random() * 900000) + 100000));
+        user.setVerificationCode(code);
+        user.setVerified(false);
 
         // 2. Resolve City ID from Selection
         // Use the efficient Compound Index lookup
@@ -66,12 +74,54 @@ public class PublicController {
         }
 
         Users savedUser = userRepository.save(user);
+
+        // 3. Send Verification Email
+        emailService.sendVerificationEmail(user.getEmail(), code);
+
         return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
     }
 
-    @GetMapping("/dashboard")
-    public String getUserDashboard() {
-        return "Welcome, Basic User! Your data will load here.";
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody com.example.SPFS.DTO.VerifyRequestDTO verifyRequest) {
+        Users user = userRepository.findByEmail(verifyRequest.getEmail())
+                .orElse(null);
+
+        if (user == null) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new com.example.SPFS.DTO.MessageResponse("Error: User not found."));
+        }
+
+        if (user.isVerified()) {
+            return ResponseEntity.ok(new com.example.SPFS.DTO.MessageResponse("User is already verified."));
+        }
+
+        if (verifyRequest.getCode() != null && verifyRequest.getCode().equals(user.getVerificationCode())) {
+            user.setVerified(true);
+            user.setVerificationCode(null); // Clear code after successful verification
+            userRepository.save(user);
+            return ResponseEntity.ok(new com.example.SPFS.DTO.MessageResponse("Email verified successfully!"));
+        } else {
+            return ResponseEntity
+                    .badRequest()
+                    .body(new com.example.SPFS.DTO.MessageResponse("Error: Invalid verification code."));
+        }
+    }
+
+    // --- DEV API: Verify All Users (Temporary) ---
+    @PostMapping("/dev/verify-all")
+    public ResponseEntity<String> verifyAllUsers() {
+        List<Users> allUsers = userRepository.findAll();
+        int count = 0;
+        for (Users u : allUsers) {
+            if (!u.isVerified()) {
+                u.setVerified(true);
+                u.setVerificationCode(null);
+                userRepository.save(u);
+                count++;
+            }
+        }
+        return ResponseEntity.ok("Successfully verified " + count + " users.");
     }
 
     @Autowired
@@ -114,6 +164,72 @@ public class PublicController {
         // But let's optimize to just return distinct cityNames anyway
         return ResponseEntity.ok(mongoTemplate.findDistinct(new org.springframework.data.mongodb.core.query.Query(),
                 "cityName", City.class, String.class));
+    }
+
+    @PostMapping("/resend-verification-code")
+    public ResponseEntity<?> resendVerificationCode(@RequestBody com.example.SPFS.DTO.EmailRequestDTO emailRequest) {
+        String email = emailRequest.getEmail();
+        Users user = userRepository.findByEmail(email).orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new com.example.SPFS.DTO.MessageResponse("Error: User not found."));
+        }
+
+        if (user.isVerified()) {
+            return ResponseEntity.ok(new com.example.SPFS.DTO.MessageResponse("User is already verified."));
+        }
+
+        // Generate new code or resend existing? Let's generate new to be safe.
+        String code = String.valueOf((int) ((Math.random() * 900000) + 100000));
+        user.setVerificationCode(code);
+        userRepository.save(user);
+
+        emailService.sendVerificationEmail(user.getEmail(), code);
+
+        return ResponseEntity.ok(new com.example.SPFS.DTO.MessageResponse("Verification code resent successfully!"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody com.example.SPFS.DTO.EmailRequestDTO emailRequest) {
+        String email = emailRequest.getEmail();
+        Users user = userRepository.findByEmail(email).orElse(null);
+
+        if (user == null) {
+            // For security, maybe don't reveal if user exists? But for now, let's be
+            // explicit as requested.
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new com.example.SPFS.DTO.MessageResponse("Error: User not found."));
+        }
+
+        String code = String.valueOf((int) ((Math.random() * 900000) + 100000));
+        user.setPasswordResetCode(code);
+        userRepository.save(user);
+
+        emailService.sendPasswordResetEmail(user.getEmail(), code);
+
+        return ResponseEntity.ok(new com.example.SPFS.DTO.MessageResponse("Password reset code sent to email."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody com.example.SPFS.DTO.ResetPasswordRequestDTO resetRequest) {
+        Users user = userRepository.findByEmail(resetRequest.getEmail()).orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new com.example.SPFS.DTO.MessageResponse("Error: User not found."));
+        }
+
+        if (resetRequest.getCode() == null || !resetRequest.getCode().equals(user.getPasswordResetCode())) {
+            return ResponseEntity.badRequest()
+                    .body(new com.example.SPFS.DTO.MessageResponse("Error: Invalid reset code."));
+        }
+
+        user.setPassword(passwordEncoder.encode(resetRequest.getNewPassword()));
+        user.setPasswordResetCode(null); // Clear the code
+        userRepository.save(user);
+
+        return ResponseEntity.ok(new com.example.SPFS.DTO.MessageResponse("Password reset successfully!"));
     }
 
     @GetMapping("/cities/{cityName}/parking-lots")

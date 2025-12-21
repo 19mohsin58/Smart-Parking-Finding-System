@@ -52,11 +52,20 @@ public class AuthController {
                 com.example.SPFS.Entities.Users dbUser = userRepository.findByEmail(springUser.getUsername())
                                 .orElseThrow(() -> new RuntimeException("Error: User not found."));
 
+                // 6. Check Verification Status
+                // 6. Check Verification Status
+                if (!dbUser.isVerified()) {
+                        return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                                        .body(new com.example.SPFS.DTO.MessageResponse(
+                                                        "Error: Email is not verified. Please verify your email first."));
+                }
+
                 return ResponseEntity.ok(new com.example.SPFS.DTO.JwtResponse(
                                 jwt,
                                 springUser.getUsername(),
                                 role,
                                 dbUser.getFullName(),
-                                dbUser.getCityCollectionId()));
+                                dbUser.getCityCollectionId(),
+                                dbUser.isVerified()));
         }
 }

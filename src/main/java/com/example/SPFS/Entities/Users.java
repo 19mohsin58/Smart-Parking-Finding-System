@@ -15,4 +15,8 @@ public class Users {
     private String password; // Stored as Hashed value
     private String cityCollectionId; // Link to cities collection
     private String role; // "USER" or "ADMIN"
+
+    private boolean isVerified = false; // Default to false
+    private String verificationCode;
+    private String passwordResetCode;
 }

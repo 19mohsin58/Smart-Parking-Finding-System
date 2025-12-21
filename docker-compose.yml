@@ -5,7 +5,7 @@ services:
   mongo1:
     image: mongo:latest
     container_name: mongo1
-    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "27017" ]
     ports:
       - "27017:27017"
     healthcheck:
@@ -13,59 +13,73 @@ services:
       interval: 10s
       timeout: 2s
       retries: 5
+    volumes:
+      - mongo1-data:/data/db
     networks:
       - spfs-net
 
   mongo2:
     image: mongo:latest
     container_name: mongo2
-    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "27017" ]
     ports:
       - "27018:27017"
+    depends_on:
+      - mongo1
+    volumes:
+      - mongo2-data:/data/db
     networks:
       - spfs-net
 
   mongo3:
     image: mongo:latest
     container_name: mongo3
-    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "27017" ]
     ports:
       - "27019:27017"
+    depends_on:
+      - mongo1
+    volumes:
+      - mongo3-data:/data/db
     networks:
       - spfs-net
 
-  # --- REDIS REPLICATION (Master + 2 Replicas) ---
-  redis-master:
+  # --- REDIS (Single Node, matching K8s) ---
+  redis:
     image: redis:latest
-    container_name: redis-master
+    container_name: redis
     command: redis-server --port 6379
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
     networks:
       - spfs-net
 
-  redis-replica-1:
-    image: redis:latest
-    container_name: redis-replica-1
-    command: redis-server --port 6380 --replicaof redis-master 6379
+  # --- SPFS APPLICATION ---
+  spfs-app:
+    build: . # Builds from the Dockerfile in current directory
+    container_name: spfs-app
     ports:
-      - "6380:6380"
+      - "8080:8080"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/SPFS_DB?replicaSet=rs0&readPreference=secondaryPreferred
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
     depends_on:
-      - redis-master
-    networks:
-      - spfs-net
-
-  redis-replica-2:
-    image: redis:latest
-    container_name: redis-replica-2
-    command: redis-server --port 6381 --replicaof redis-master 6379
-    ports:
-      - "6381:6381"
-    depends_on:
-      - redis-master
+      mongo1:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - spfs-net
 
 networks:
   spfs-net:
     driver: bridge
+
+volumes:
+  mongo1-data:
+  mongo2-data:
+  mongo3-data:
+  redis-data:

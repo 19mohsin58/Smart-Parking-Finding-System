@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SPFS - Smart Parking</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            /* Indigo */
+            --primary-light: #5f57ea;
+            --accent: #10B981;
+            /* Emerald */
+            --accent-glow: rgba(16, 185, 129, 0.4);
+            --bg-dark: #0f172a;
+            --surface-dark: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --glass: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow-x: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Utilities --- */
+        .hidden {
+            display: none !important;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-primary {
+            color: var(--primary);
+        }
+
+        .text-accent {
+            color: var(--accent);
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .mt-4 {
+            margin-top: 1rem;
+        }
+
+        .mb-2 {
+            margin-bottom: 0.5rem;
+        }
+
+        .mb-4 {
+            margin-bottom: 1rem;
+        }
+
+        .gap-2 {
+            gap: 0.5rem;
+        }
+
+        /* --- Components --- */
+        .btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            box-shadow: none;
+        }
+
+        .input-group {
+            margin-bottom: 1.2rem;
+            width: 100%;
+            position: relative;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        input,
+        select {
+            width: 100%;
+            background: var(--surface-dark);
+            border: 1px solid var(--glass-border);
+            padding: 14px 14px 14px 45px;
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        /* --- Views --- */
+        .view {
+            padding: 24px;
+            height: 100%;
+            overflow-y: auto;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 1. Landing */
+        #view-landing {
+            background: radial-gradient(circle at top right, #1e1b4b, var(--bg-dark));
+            justify-content: center;
+        }
+
+        .logo-glow {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, var(--primary), #a855f7);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+            box-shadow: 0 0 40px rgba(79, 70, 229, 0.5);
+            margin-bottom: 2rem;
+        }
+
+        /* 4. Dashboard */
+        .active-res-card {
+            background: linear-gradient(135deg, #064e3b, #065f46);
+            border: 1px solid #10b981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .active-res-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: pulse 4s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        .lot-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .lot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-green {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-red {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        /* 5. Booking - Slot Grid */
+        .slot-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 20px 0;
+        }
+
+        .slot {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            background: var(--surface-dark);
+            border: 2px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .slot.available {
+            color: var(--accent);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .slot.available:hover {
+            background: rgba(16, 185, 129, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .slot.booked {
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .slot.selected {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.5);
+        }
+
+        /* Nav Bar */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 100;
+        }
+
+        .nav-item {
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .nav-item i {
+            font-size: 1.4rem;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        /* Profile Styles */
+        .profile-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .avatar-large {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            margin: 0 auto 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: var(--bg-dark);
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            border-bottom: 1px solid var(--glass-border);
+            cursor: pointer;
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-item i {
+            width: 30px;
+        }
+
+        /* History Item */
+        .history-item {
+            padding: 16px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 1. LANDING VIEW -->
+    <div id="view-landing" class="view flex flex-col items-center">
+        <div class="logo-glow"><i class="fas fa-parking"></i></div>
+        <h1 class="mb-2" style="font-size: 2.5rem; letter-spacing: -1px;">SPFS</h1>
+        <p class="mb-4 text-muted text-center" style="max-width: 250px;">Smart Parking Finder System. Book spots in
+            real-time.</p>
+
+        <div style="margin-top: auto; width: 100%;">
+            <button class="btn mb-2" onclick="showView('view-login')">Sign In</button>
+            <button class="btn btn-outline" onclick="showView('view-register')">Create Account</button>
+        </div>
+    </div>
+
+    <!-- 2. LOGIN VIEW -->
+    <div id="view-login" class="view hidden">
+        <h2 class="mb-4">Welcome Back!</h2>
+        <p class="text-muted mb-4">Please enter your details.</p>
+
+        <div class="input-group">
+            <i class="fas fa-envelope"></i>
+            <input type="email" placeholder="Email Address">
+        </div>
+        <div class="input-group">
+            <i class="fas fa-lock"></i>
+            <input type="password" placeholder="Password">
+        </div>
+
+        <button class="btn mt-4" onclick="showView('view-dashboard')">Sign In</button>
+        <p class="text-center mt-4 text-muted" style="font-size: 0.9rem;">Don't have an account? <span
+                class="text-primary" onclick="showView('view-register')">Sign up</span></p>
+    </div>
+
+    <!-- 3. REGISTER VIEW -->
+    <div id="view-register" class="view hidden">
+        <i class="fas fa-arrow-left mb-4" onclick="showView('view-landing')"></i>
+        <h2 class="mb-4">Create Account</h2>
+
+        <div class="input-group">
+            <i class="fas fa-user"></i>
+            <input type="text" placeholder="Full Name">
+        </div>
+        <div class="input-group">
+            <i class="fas fa-envelope"></i>
+            <input type="email" placeholder="Email Address">
+        </div>
+        <div class="input-group">
+            <i class="fas fa-lock"></i>
+            <input type="password" placeholder="Password">
+        </div>
+
+        <p class="mb-2 text-muted" style="font-size: 0.9rem;">Select Home City</p>
+        <div class="input-group">
+            <i class="fas fa-globe"></i>
+            <select>
+                <option>Select Country</option>
+                <option>USA</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <i class="fas fa-map"></i>
+            <select>
+                <option>Select State</option>
+                <option>New York</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <i class="fas fa-city"></i>
+            <select>
+                <option>Select City</option>
+                <option>New York City</option>
+            </select>
+        </div>
+
+        <button class="btn mt-4" onclick="showView('view-verify-email')">Register</button>
+    </div>
+
+    <!-- 3.5 VERIFY EMAIL VIEW (NEW) -->
+    <div id="view-verify-email" class="view hidden flex flex-col items-center justify-center text-center">
+        <div
+            style="width: 70px; height: 70px; background: rgba(79, 70, 229, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+            <i class="fas fa-envelope-open-text text-primary" style="font-size: 1.8rem;"></i>
+        </div>
+        <h2 class="mb-2">Verify Email</h2>
+        <p class="text-muted mb-4">We sent a 4-digit code to your email.</p>
+
+        <div class="flex justify-center gap-2 mb-4">
+            <input type="text" style="width: 50px; text-align: center; padding: 12px;" maxlength="1">
+            <input type="text" style="width: 50px; text-align: center; padding: 12px;" maxlength="1">
+            <input type="text" style="width: 50px; text-align: center; padding: 12px;" maxlength="1">
+            <input type="text" style="width: 50px; text-align: center; padding: 12px;" maxlength="1">
+        </div>
+
+        <button class="btn" onclick="showView('view-dashboard')">Verify & Login</button>
+        <p class="text-muted mt-4" style="font-size: 0.9rem;">Resend Code in <span class="text-primary">30s</span></p>
+    </div>
+
+    <!-- 4. DASHBOARD VIEW -->
+    <div id="view-dashboard" class="view hidden" style="padding-bottom: 80px;">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <p class="text-muted" style="font-size: 0.9rem;">Hello,</p>
+                <h3>Mohsin Ali</h3>
+            </div>
+            <div class="avatar-small" onclick="showView('view-profile')">
+                <img src="https://ui-avatars.com/api/?name=Mohsin+Ali&background=4F46E5&color=fff"
+                    style="width: 40px; border-radius: 50%;" alt="User">
+            </div>
+        </div>
+
+        <!-- Active Reservation -->
+        <div class="card active-res-card mb-4" onclick="showView('view-success')">
+            <!-- Clicking goes to ticket detail -->
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="badge badge-green"
+                        style="background: rgba(255,255,255,0.2); color: white;">ACTIVE</span>
+                    <h4 class="mt-2 text-white">Downtown Plaza</h4>
+                    <p class="text-white" style="opacity: 0.8; font-size: 0.9rem;">Slot A-04</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-white" style="font-size: 0.8rem;">Time Remaining</p>
+                    <h2 class="text-white">14:52</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="input-group">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search parking lots...">
+        </div>
+
+        <h4 class="mb-2">Near You</h4>
+        <!-- Parking List -->
+        <div class="card lot-card" onclick="showView('view-booking')">
+            <div class="lot-header">
+                <h5>City Center Mall</h5>
+                <span class="badge badge-green">12 Slots</span>
+            </div>
+            <p class="text-muted" style="font-size: 0.9rem;"><i class="fas fa-map-marker-alt"
+                    style="margin-right: 6px;"></i> 45 Market St.</p>
+            <div class="flex" style="gap: 8px; margin-top: 8px;">
+                <span class="badge" style="background: #334155; color: #cbd5e1;">Covered</span>
+                <span class="badge" style="background: #334155; color: #cbd5e1;">CCTV</span>
+            </div>
+        </div>
+
+        <div class="card lot-card" onclick="showView('view-booking')">
+            <div class="lot-header">
+                <h5>Grand Station</h5>
+                <span class="badge badge-red">Full</span>
+            </div>
+            <p class="text-muted" style="font-size: 0.9rem;"><i class="fas fa-map-marker-alt"
+                    style="margin-right: 6px;"></i> 89 Central Ave.</p>
+        </div>
+
+        <div class="card lot-card" onclick="showView('view-booking')">
+            <div class="lot-header">
+                <h5>Westside Park</h5>
+                <span class="badge badge-green">45 Slots</span>
+            </div>
+            <p class="text-muted" style="font-size: 0.9rem;"><i class="fas fa-map-marker-alt"
+                    style="margin-right: 6px;"></i> 12 West Blvd.</p>
+        </div>
+    </div>
+
+    <!-- 5. BOOKING VIEW -->
+    <div id="view-booking" class="view hidden">
+        <i class="fas fa-arrow-left mb-4" onclick="showView('view-dashboard')"></i>
+        <h2>City Center Mall</h2>
+        <p class="text-muted">45 Market St.</p>
+
+        <div class="card mt-4">
+            <h4 class="mb-4 text-center">Select a Slot</h4>
+            <div class="slot-grid">
+                <div class="slot booked">A1</div>
+                <div class="slot available" onclick="selectSlot(this)">A2</div>
+                <div class="slot booked">A3</div>
+                <div class="slot available" onclick="selectSlot(this)">B1</div>
+                <div class="slot selected" onclick="selectSlot(this)">B2</div>
+                <div class="slot available" onclick="selectSlot(this)">B3</div>
+                <div class="slot available" onclick="selectSlot(this)">C1</div>
+                <div class="slot booked">C2</div>
+                <div class="slot ticket-slot available" onclick="selectSlot(this)">C3</div>
+            </div>
+            <div class="flex justify-center mt-2" style="gap: 16px; font-size: 0.8rem; color: var(--text-muted);">
+                <span><i class="fas fa-square text-accent"></i> Available</span>
+                <span><i class="fas fa-square" style="color: var(--primary);"></i> Selected</span>
+                <span><i class="fas fa-square" style="color: #475569;"></i> Booked</span>
+            </div>
+        </div>
+
+        <div style="position: absolute; bottom: 20px; left: 20px; right: 20px;">
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-muted">Total Price</span>
+                <h2>$5.00/hr</h2>
+            </div>
+            <button class="btn" onclick="showView('view-success')">Confirm Booking</button>
+        </div>
+    </div>
+
+    <!-- 6. SUCCESS VIEW -->
+    <div id="view-success" class="view hidden flex flex-col justify-center items-center text-center">
+        <div
+            style="width: 80px; height: 80px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 0 30px var(--accent-glow);">
+            <i class="fas fa-check text-white" style="font-size: 2rem;"></i>
+        </div>
+        <h2 class="mb-2">Booking Confirmed!</h2>
+        <p class="text-muted mb-4">Ticket ID: #SPFS-8829</p>
+
+        <div class="card w-full text-left">
+            <div class="flex justify-between mb-2">
+                <span class="text-muted">Parking Lot</span>
+                <strong>City Center Mall</strong>
+            </div>
+            <div class="flex justify-between mb-2">
+                <span class="text-muted">Slot Number</span>
+                <strong class="text-primary">B-02</strong>
+            </div>
+            <div class="flex justify-between mb-2">
+                <span class="text-muted">Date</span>
+                <strong>Dec 20, 2025</strong>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-muted">Duration</span>
+                <strong>1 Hour</strong>
+            </div>
+        </div>
+
+        <div class="w-full mt-4">
+            <button class="btn mb-2">Navigate to Lot <i class="fas fa-directions ml-2"></i></button>
+            <button class="btn btn-outline" style="border-color: #ef4444; color: #ef4444;"
+                onclick="showView('view-dashboard')">Cancel Reservation</button>
+            <button class="btn btn-outline mt-2" onclick="showView('view-dashboard')">Back to Home</button>
+        </div>
+    </div>
+
+    <!-- 7. HISTORY VIEW (NEW) -->
+    <div id="view-history" class="view hidden" style="padding-bottom: 80px;">
+        <h2 class="mb-4">Booking History</h2>
+
+        <div class="card history-item">
+            <div class="flex justify-between">
+                <strong>Downtown Plaza</strong>
+                <span class="text-muted">Dec 18</span>
+            </div>
+            <p class="text-muted text-sm">Slot A-04 • 2 Hours</p>
+            <span class="badge badge-green mt-2">Completed</span>
+        </div>
+
+        <div class="card history-item">
+            <div class="flex justify-between">
+                <strong>City Center Mall</strong>
+                <span class="text-muted">Dec 15</span>
+            </div>
+            <p class="text-muted text-sm">Slot C-12 • 45 Mins</p>
+            <span class="badge badge-green mt-2">Completed</span>
+        </div>
+
+        <div class="card history-item">
+            <div class="flex justify-between">
+                <strong>Westside Park</strong>
+                <span class="text-muted">Dec 10</span>
+            </div>
+            <p class="text-muted text-sm">Slot B-01 • 1 Hour</p>
+            <span class="badge badge-red mt-2">Cancelled</span>
+        </div>
+    </div>
+
+    <!-- 8. PROFILE VIEW -->
+    <div id="view-profile" class="view hidden" style="padding-bottom: 80px;">
+        <div class="profile-header">
+            <div class="avatar-large">MA</div>
+            <h3>Mohsin Ali</h3>
+            <p class="text-muted">user@example.com</p>
+            <span class="badge badge-green mt-2" style="display:inline-block">Verified User</span>
+        </div>
+
+        <div class="card" style="padding: 0;">
+            <div class="settings-item">
+                <div class="flex items-center">
+                    <i class="fas fa-user-edit text-primary"></i>
+                    <span>Edit Profile</span>
+                </div>
+                <i class="fas fa-chevron-right text-muted"></i>
+            </div>
+            <div class="settings-item">
+                <div class="flex items-center">
+                    <i class="fas fa-car text-primary"></i>
+                    <span>My Vehicles</span>
+                </div>
+                <i class="fas fa-chevron-right text-muted"></i>
+            </div>
+            <div class="settings-item"
+                onclick="showView('view-history'); setActiveNav(document.querySelectorAll('.nav-item')[1])">
+                <div class="flex items-center">
+                    <i class="fas fa-history text-primary"></i>
+                    <span>Booking History</span>
+                </div>
+                <i class="fas fa-chevron-right text-muted"></i>
+            </div>
+            <div class="settings-item" onclick="showView('view-admin-dashboard')"> <!-- Secret Admin Entry -->
+                <div class="flex items-center">
+                    <i class="fas fa-shield-alt text-primary"></i>
+                    <span>Admin Panel</span>
+                </div>
+                <i class="fas fa-chevron-right text-muted"></i>
+            </div>
+        </div>
+
+        <button class="btn btn-outline mt-4" style="border-color: #ef4444; color: #ef4444;"
+            onclick="showView('view-landing')">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+
+    <!-- 9. ADMIN DASHBOARD VIEW -->
+    <div id="view-admin-dashboard" class="view hidden" style="padding-bottom: 80px;">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-primary">Admin Portal</h2>
+            <button class="btn btn-outline" style="width: auto; padding: 8px 12px; font-size: 0.8rem;"
+                onclick="showView('view-profile')">Exit</button>
+        </div>
+
+        <!-- Sync Button -->
+        <button class="btn mb-4" style="background: var(--surface-dark); border: 1px solid var(--primary);"><i
+                class="fas fa-sync alt mr-2"></i> Sync Redis & DB</button>
+
+        <!-- Stats Overview -->
+        <h4 class="mb-2">Analytics</h4>
+        <div class="flex" style="gap: 12px; overflow-x: auto; padding-bottom: 10px;">
+            <div class="card" style="min-width: 140px; margin-bottom: 0;">
+                <p class="text-muted" style="font-size: 0.8rem;">Peak Hour</p>
+                <h3>14:00</h3>
+                <span class="badge badge-green">+12%</span>
+            </div>
+            <div class="card" style="min-width: 140px; margin-bottom: 0;">
+                <p class="text-muted" style="font-size: 0.8rem;">Avg Duration</p>
+                <h3>1.5 hr</h3>
+                <span class="text-muted" style="font-size: 0.7rem;">Top: Mall</span>
+            </div>
+            <div class="card" style="min-width: 140px; margin-bottom: 0;">
+                <p class="text-muted" style="font-size: 0.8rem;">Gold Users</p>
+                <h3>45</h3>
+                <span class="badge" style="background: #eab308; color: #fff;">Loyalty</span>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center mt-4 mb-2">
+            <h4>Management</h4>
+            <span class="text-primary" style="font-size: 0.9rem;" onclick="showView('view-admin-users')">View
+                Users</span>
+        </div>
+
+        <div class="card lot-card">
+            <div class="lot-header">
+                <h5>City Center Mall</h5>
+                <button class="btn btn-outline"
+                    style="width: auto; padding: 4px 8px; font-size: 0.7rem; border-color: #ef4444; color: #ef4444;"><i
+                        class="fas fa-trash"></i></button>
+            </div>
+            <p class="text-muted" style="font-size: 0.9rem;">Total Slots: 50 | Live: 12</p>
+        </div>
+        <div class="card lot-card">
+            <div class="lot-header">
+                <h5>Grand Station</h5>
+                <button class="btn btn-outline"
+                    style="width: auto; padding: 4px 8px; font-size: 0.7rem; border-color: #ef4444; color: #ef4444;"><i
+                        class="fas fa-trash"></i></button>
+            </div>
+            <p class="text-muted" style="font-size: 0.9rem;">Total Slots: 20 | Live: 0</p>
+        </div>
+
+        <button class="btn mt-4" onclick="showView('view-admin-add-lot')"><i class="fas fa-plus"></i> Add New Parking
+            Lot</button>
+    </div>
+
+    <!-- 10. ADMIN ADD LOT VIEW (NEW) -->
+    <div id="view-admin-add-lot" class="view hidden">
+        <i class="fas fa-arrow-left mb-4" onclick="showView('view-admin-dashboard')"></i>
+        <h2 class="mb-4">Add Parking Lot</h2>
+
+        <div class="input-group">
+            <i class="fas fa-heading"></i>
+            <input type="text" placeholder="Parking Lot Name">
+        </div>
+        <div class="input-group">
+            <i class="fas fa-map-marker-alt"></i>
+            <input type="text" placeholder="Full Address">
+        </div>
+        <div class="input-group">
+            <i class="fas fa-layer-group"></i>
+            <input type="number" placeholder="Total Capacity">
+        </div>
+
+        <div class="input-group">
+            <i class="fas fa-globe"></i>
+            <select>
+                <option>Select Country</option>
+                <option>USA</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <i class="fas fa-map"></i>
+            <select>
+                <option>Select State</option>
+                <option>New York</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <i class="fas fa-city"></i>
+            <select>
+                <option>Select City</option>
+                <option>New York City</option>
+            </select>
+        </div>
+
+        <button class="btn mt-4" onclick="showView('view-admin-dashboard')">Create Lot</button>
+    </div>
+
+    <!-- 11. ADMIN USERS LIST VIEW (NEW) -->
+    <div id="view-admin-users" class="view hidden">
+        <i class="fas fa-arrow-left mb-4" onclick="showView('view-admin-dashboard')"></i>
+        <h2 class="mb-4">Registered Users</h2>
+
+        <div class="input-group">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search users...">
+        </div>
+
+        <div class="card">
+            <div class="user-list-item">
+                <div>
+                    <strong>Mohsin Ali</strong><br>
+                    <span class="text-muted" style="font-size: 0.8rem;">user@example.com</span>
+                </div>
+                <span class="badge badge-green">Gold</span>
+            </div>
+            <div class="user-list-item">
+                <div>
+                    <strong>John Doe</strong><br>
+                    <span class="text-muted" style="font-size: 0.8rem;">john@example.com</span>
+                </div>
+                <span class="badge" style="background: #94a3b8; color: #fff;">Silver</span>
+            </div>
+            <div class="user-list-item" style="border-bottom: none;">
+                <div>
+                    <strong>Jane Smith</strong><br>
+                    <span class="text-muted" style="font-size: 0.8rem;">jane@example.com</span>
+                </div>
+                <span class="badge" style="background: #b45309; color: #fff;">Bronze</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAVIGATION BAR -->
+    <div id="bottom-nav" class="bottom-nav hidden">
+        <div class="nav-item active" onclick="showView('view-dashboard'); setActiveNav(this)">
+            <i class="fas fa-home"></i> Home
+        </div>
+        <div class="nav-item" onclick="showView('view-history'); setActiveNav(this)">
+            <i class="fas fa-ticket-alt"></i> History
+        </div>
+        <div class="nav-item" onclick="showView('view-profile'); setActiveNav(this)">
+            <i class="fas fa-user"></i> Profile
+        </div>
+    </div>
+
+    <script>
+        function showView(viewId) {
+            // Hide all views
+            document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
+
+            // Show target view
+            document.getElementById(viewId).classList.remove('hidden');
+
+            // Manage Bottom Nav Visibility
+            const nav = document.getElementById('bottom-nav');
+            if (['view-dashboard', 'view-profile', 'view-history'].includes(viewId)) {
+                nav.classList.remove('hidden');
+            } else {
+                nav.classList.add('hidden');
+            }
+        }
+
+        function selectSlot(el) {
+            if (el.classList.contains('booked')) return;
+
+            // Deselect others
+            document.querySelectorAll('.slot.selected').forEach(s => {
+                s.classList.remove('selected');
+                s.classList.add('available');
+            });
+
+            // Select clicked
+            el.classList.remove('available');
+            el.classList.add('selected');
+        }
+
+        function setActiveNav(el) {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+        }
+    </script>
+</body>
+
+</html>
