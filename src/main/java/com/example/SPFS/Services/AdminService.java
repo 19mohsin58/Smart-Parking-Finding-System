@@ -11,7 +11,6 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
-import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -119,19 +118,63 @@ public class AdminService {
         }
 
         // --- CRUD Read: Get All Lots with Merged Status (Paginated) ---
-        public org.springframework.data.domain.Page<ParkingLot> getAllLotsWithLiveStatus(
+        public org.springframework.data.domain.Page<com.example.SPFS.DTO.ParkingLotResponseDTO> getAllLotsWithLiveStatus(
                         org.springframework.data.domain.Pageable pageable) {
                 org.springframework.data.domain.Page<ParkingLot> page = parkingLotRepository.findAll(pageable);
 
-                // Merge the Redis live count into the MongoDB object structure
-                for (ParkingLot lot : page.getContent()) {
-                        Long available = redisTemplate.opsForSet().size("lot:slots:" + lot.getId());
+                // Convert to DTOs and Merge Data
+                java.util.List<com.example.SPFS.DTO.ParkingLotResponseDTO> dtos = page.getContent().stream()
+                                .map(lot -> {
+                                        com.example.SPFS.DTO.ParkingLotResponseDTO dto = new com.example.SPFS.DTO.ParkingLotResponseDTO();
+                                        dto.setId(lot.getId());
+                                        dto.setParkingName(lot.getParkingName());
+                                        dto.setFullAddress(lot.getFullAddress());
+                                        dto.setTotalCapacity(lot.getTotalCapacity());
+                                        dto.setSlotIds(lot.getSlotIds());
 
-                        if (available != null) {
-                                lot.setAvailableSlots(available.intValue());
-                        }
-                }
-                return page;
+                                        // 1. Sync Redis Status (AP Fallback)
+                                        try {
+                                                Long available = redisTemplate.opsForSet()
+                                                                .size("lot:slots:" + lot.getId());
+                                                if (available != null) {
+                                                        dto.setAvailableSlots(available.intValue());
+                                                } else {
+                                                        dto.setAvailableSlots(lot.getAvailableSlots());
+                                                }
+                                        } catch (Exception e) {
+                                                System.err.println(
+                                                                "Warning: Redis is unavailable. Serving stale data for admin lot "
+                                                                                + lot.getId());
+                                                dto.setAvailableSlots(lot.getAvailableSlots());
+                                        }
+
+                                        // 2. Populate City (Reverse Lookups - We need the method back in Repo OR
+                                        // iterate
+                                        // efficiently)
+                                        // Since I reverted the repo method, I will find by searching (less efficient
+                                        // but
+                                        // strict per user revert request?)
+                                        // No, User said 'totally against parking lot HAS city field'.
+                                        // Adding a method to REPO is fine, modifying ENTITY was the issue.
+                                        // I will use a query here or re-add the repo method if allowed.
+                                        // Ideally, finding the city that has this lot ID in its list.
+                                        // To avoid modifying Repo again if user hates that too, I can use MongoTemplate
+                                        // here.
+                                        Query query = new Query(Criteria.where("parkingLotIds").is(lot.getId()));
+                                        City city = mongoTemplate.findOne(query, City.class);
+                                        if (city != null) {
+                                                com.example.SPFS.DTO.CityDTO cityDTO = new com.example.SPFS.DTO.CityDTO();
+                                                cityDTO.setId(city.getId());
+                                                cityDTO.setCityName(city.getCityName());
+                                                cityDTO.setState(city.getState());
+                                                cityDTO.setCountry(city.getCountry());
+                                                dto.setCity(cityDTO);
+                                        }
+
+                                        return dto;
+                                }).collect(java.util.stream.Collectors.toList());
+
+                return new org.springframework.data.domain.PageImpl<>(dtos, pageable, page.getTotalElements());
         }
 
         // --- User Fetching ---

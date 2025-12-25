@@ -40,9 +40,11 @@ public class ReservationService {
             throw new RuntimeException("User already has an active booking. Please cancel it before booking again.");
         }
 
+        String slotKey = "lot:slots:" + parkingLotId;
+        String slotNumber = null;
+
         try {
             // 1. Atomic Check and Book from Redis
-            String slotKey = "lot:slots:" + parkingLotId;
             Long sizeBefore = redisTemplate.opsForSet().size(slotKey);
             System.out.println("DEBUG: Booking Slot. Key: " + slotKey + ", Size Before: " + sizeBefore);
 
@@ -55,7 +57,7 @@ public class ReservationService {
                 throw new RuntimeException("Parking Lot is Full");
             }
 
-            String slotNumber = slotObj.toString();
+            slotNumber = slotObj.toString();
 
             // 1.5 Sync DB Status (Mark Slot as BOOKED) - FIX for "Available" bug
             com.example.SPFS.Entities.ParkingLot lot = parkingLotRepository.findById(parkingLotId)
@@ -63,10 +65,12 @@ public class ReservationService {
 
             // Inefficient but necessary due to schema: Find the specific slot by checking
             // all slots of this lot
-            // Ideally, Slot should have parkingLotId, but we work with what we have.
+            // Ideally, Slot should have parkingLotId, but working with it because we can
+            // not use document referencing.
             List<com.example.SPFS.Entities.Slot> lotSlots = slotRepository.findAllById(lot.getSlotIds());
+            String finalSlotNumber = slotNumber;
             com.example.SPFS.Entities.Slot dbSlot = lotSlots.stream()
-                    .filter(s -> s.getSlotNumber().equals(slotNumber))
+                    .filter(s -> s.getSlotNumber().equals(finalSlotNumber))
                     .findFirst()
                     .orElse(null);
 
@@ -77,6 +81,12 @@ public class ReservationService {
             // Mark slot as BOOKED
             dbSlot.setStatus("BOOKED");
             slotRepository.save(dbSlot);
+
+            // 1.8 Sync ParkingLot Available Count (For AP Read Fallback)
+            if (lot.getAvailableSlots() > 0) {
+                lot.setAvailableSlots(lot.getAvailableSlots() - 1);
+                parkingLotRepository.save(lot);
+            }
 
             // 2. Create Reservation in DB
             Reservations reservation = new Reservations();
@@ -94,6 +104,12 @@ public class ReservationService {
 
         } catch (Exception e) {
             // ROLLBACK: If anything fails (Lot full, DB error, etc.), release the User Lock
+            // AND return the slot if we took one
+            if (slotNumber != null) {
+                System.out.println(
+                        "DEBUG ROLLBACK: Returning slot " + slotNumber + " to Redis due to error: " + e.getMessage());
+                redisTemplate.opsForSet().add(slotKey, slotNumber);
+            }
             redisTemplate.delete(userLockKey);
             throw e;
         }
@@ -119,6 +135,15 @@ public class ReservationService {
         if (dbSlot != null) {
             dbSlot.setStatus("AVAILABLE");
             slotRepository.save(dbSlot);
+
+            // 1.8 Sync ParkingLot Available Count (For AP Read Fallback)
+            com.example.SPFS.Entities.ParkingLot lot = parkingLotRepository.findById(reservation.getParkingLotId())
+                    .orElse(null);
+            if (lot != null) {
+                // We don't check max capacity here to keep it simple, but in prod we might
+                lot.setAvailableSlots(lot.getAvailableSlots() + 1);
+                parkingLotRepository.save(lot);
+            }
 
             // 2. Return Slot to Redis
             String slotKey = "lot:slots:" + reservation.getParkingLotId();

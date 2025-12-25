@@ -26,14 +26,14 @@ public class AdminController {
     }
 
     @GetMapping("/lots")
-    public ResponseEntity<org.springframework.data.domain.Page<ParkingLot>> getAllParkingLots(
+    public ResponseEntity<org.springframework.data.domain.Page<com.example.SPFS.DTO.ParkingLotResponseDTO>> getAllParkingLots(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
 
         // Reads Mongo data and merges with Redis live status
-        org.springframework.data.domain.Page<ParkingLot> lotsWithLiveStatus = adminService
+        org.springframework.data.domain.Page<com.example.SPFS.DTO.ParkingLotResponseDTO> lotsWithLiveStatus = adminService
                 .getAllLotsWithLiveStatus(pageable);
         return ResponseEntity.ok(lotsWithLiveStatus);
     }

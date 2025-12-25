@@ -62,6 +62,7 @@ public class AuthController {
 
                 return ResponseEntity.ok(new com.example.SPFS.DTO.JwtResponse(
                                 jwt,
+                                dbUser.getId(),
                                 springUser.getUsername(),
                                 role,
                                 dbUser.getFullName(),

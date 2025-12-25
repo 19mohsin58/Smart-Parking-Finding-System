@@ -15,7 +15,7 @@ public class City {
     @Id
     private String id;
 
-    // REMOVED unique=true. "Springfield" exists in 30+ states.
+
     // Indexing is now handled by the Compound Index above.
     private String cityName;
     private String state;

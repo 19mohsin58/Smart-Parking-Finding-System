@@ -16,12 +16,16 @@ public class RedisConfig {
         // 1. Configure Master (Write Node)
         RedisStandaloneConfiguration serverConfig = new RedisStandaloneConfiguration("localhost", 6379);
 
-        // 2. Configure Client Options for Replica Reading
-        // "REPLICA_PREFERRED" means: Read from replica if available, else master.
-        // This ensures Scalability (reads) and HA (if master fails, we might still
-        // read)
+        // 2. Configure Client Options
+        // Scenario: "Single Redis Node" (No Replicas)
+        // Since there is only ONE node, both Reads and Writes go to the same instance
+        // (Master).
+        // This is a CP (Consistent) setup. If this node goes down, the system is
+        // Unavailable (A).
+        // There is no "Partition Tolerance" logic needed between Redis nodes because
+        // there are no other nodes.
         LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
-                .readFrom(io.lettuce.core.ReadFrom.REPLICA_PREFERRED)
+                .readFrom(io.lettuce.core.ReadFrom.MASTER)
                 .build();
 
         return new LettuceConnectionFactory(serverConfig, clientConfig);

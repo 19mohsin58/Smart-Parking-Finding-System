@@ -243,11 +243,16 @@ public class PublicController {
         }
         List<ParkingLot> parkingLots = parkingLotRepository.findAllById(city.getParkingLotIds());
 
-        // Update with live availability from Redis
+        // Update with live availability from Redis with Fallback
         for (ParkingLot lot : parkingLots) {
-            Long size = redisTemplate.opsForSet().size("lot:slots:" + lot.getId());
-            if (size != null) {
-                lot.setAvailableSlots(size.intValue());
+            try {
+                Long size = redisTemplate.opsForSet().size("lot:slots:" + lot.getId());
+                if (size != null) {
+                    lot.setAvailableSlots(size.intValue());
+                }
+            } catch (Exception e) {
+                // Redis is down: Fallback to MongoDB 'availableSlots' field (AP)
+                System.err.println("Warning: Redis is unavailable. Serving stale data for lot " + lot.getId());
             }
         }
 
