@@ -1,0 +1,111 @@
+@startuml SPFS_3Tier_Architecture_Working
+!theme plain
+skinparam linetype ortho
+
+title Smart Parking Finding System - 3-Tier Architecture
+
+package Controllers {
+  class AuthController {
+    + login()
+    + register()
+    + refreshToken()
+  }
+  
+  class UserController {
+    + getProfile()
+    + updateProfile()
+    + getBookings()
+  }
+  
+  class ReservationController {
+    + createBooking()
+    + cancelBooking()
+    + getAvailableSlots()
+  }
+  
+  class AdminController {
+    + manageCities()
+    + analytics()
+  }
+  
+  class PublicController {
+    + searchParking()
+    + getNearbySlots()
+  }
+}
+
+package Services {
+  class UserService {
+    + findByUsername()
+    + createUser()
+    + updateProfile()
+  }
+  
+  class ParkingService {
+    + findAvailableSlots()
+    + getParkingByCity()
+    + updateSlotStatus()
+  }
+  
+  class ReservationService {
+    + createReservation()
+    + cancelReservation()
+    + checkAvailability()
+  }
+  
+  class AdminService {
+    + createCity()
+    + getAnalytics()
+  }
+  
+  class EmailService {
+    + sendBookingConfirmation()
+    + sendPasswordReset()
+  }
+}
+
+package Entities {
+  class City
+  class ParkingLot
+  class Slot
+  class Users
+  class Reservations
+}
+
+' Controller -> Service dependencies
+AuthController ..> UserService
+UserController ..> UserService
+ReservationController ..> ReservationService
+ReservationController ..> ParkingService
+AdminController ..> AdminService
+PublicController ..> ParkingService
+
+' Service -> Entity access
+UserService ..> Users
+ParkingService ..> ParkingLot
+ParkingService ..> Slot
+ReservationService ..> Reservations
+AdminService ..> City
+
+note top of Controllers
+  **Spring @RestController**
+  - JWT Authentication
+  - Role-based access
+  - Swagger documented
+end note
+
+note top of Services
+  **@Service Layer**
+  - Business validation
+  - Transaction management
+  - Redis TTL caching
+end note
+
+note top of Entities
+  **MongoDB Documents**
+  - Geospatial indexes
+  - Sharding by City
+  - Redis TTL slots
+end note
+
+@enduml

@@ -1,0 +1,72 @@
+@startuml SPFS_Domain_Model
+!theme plain
+skinparam linetype ortho
+
+title Smart Parking Finding System - Domain Model
+
+package "Data Domain (LSMDB)" #LightGreen {
+  class City {
+    + cityId: Long (PK)
+    + name: String
+    + description: String
+  }
+  
+  class ParkingLot {
+    + parkingLotId: Long (PK)
+    + cityId: Long (FK)
+    + name: String
+    + totalSlots: int
+    + address: String
+  }
+  
+  class Slot {
+    + slotId: Long (PK)
+    + parkingLotId: Long (FK)
+    + slotNumber: int
+    + status: String
+    + pricePerHour: double
+  }
+  
+  class Users {
+    + userId: Long (PK)
+    + username: String
+    + email: String
+    + password: String (hashed)
+    + role: String
+  }
+  
+  class Reservations {
+    + reservationId: Long (PK)
+    + userId: Long (FK)
+    + slotId: Long (FK)
+    + startTime: LocalDateTime
+    + endTime: LocalDateTime
+    + status: String
+  }
+}
+
+' Sharding hierarchy
+City ||--o{ ParkingLot : "1 : *"
+ParkingLot ||--o{ Slot : "1 : *"
+Users ||--o{ Reservations : "1 : *"
+Slot ||--o{ Reservations : "1 : *"
+
+note top of City
+  **MongoDB 2dsphere**
+  Geospatial indexing
+  Sharding root
+end note
+
+note top of Slot
+  **Redis TTL Caching**
+  Real-time availability
+  5min auto-expiry
+end note
+
+note right of Reservations
+  **MongoDB Document**
+  Audit trail persistence
+  Aggregation analytics
+end note
+
+@enduml
