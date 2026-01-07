@@ -5,16 +5,15 @@ import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.index.Indexed;
+
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 
 @Data
-@CompoundIndex(name = "geo_idx", def = "{'country': 1, 'state': 1, 'cityName': 1}")
+@CompoundIndex(name = "geo_idx", def = "{'state': 1}")
 @Document(collection = "cities")
 public class City {
     @Id
     private String id;
-
 
     // Indexing is now handled by the Compound Index above.
     private String cityName;

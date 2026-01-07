@@ -54,22 +54,16 @@ public class PublicController {
         user.setVerified(false);
 
         // 2. Resolve City ID from Selection
-        // Use the efficient Compound Index lookup
-        if (registerRequest.getCountry() != null && registerRequest.getState() != null
-                && registerRequest.getCityName() != null) {
-            java.util.List<City> cities = cityRepository.findByCountryAndState(registerRequest.getCountry(),
-                    registerRequest.getState());
+        // Use the efficient State Index (US Only)
+        if (registerRequest.getState() != null && registerRequest.getCityName() != null) {
+            java.util.List<City> cities = cityRepository.findByState(registerRequest.getState());
             City matchedCity = cities.stream()
                     .filter(c -> c.getCityName().equalsIgnoreCase(registerRequest.getCityName()))
                     .findFirst()
                     .orElse(null);
 
             if (matchedCity != null) {
-                user.setCityCollectionId(matchedCity.getId());
-            } else {
-                // Fallback or Error? For now, we allow null cityId or log warning.
-                // Usually means Frontend sent invalid data or admin hasn't imported that city
-                // yet.
+                user.setCity(matchedCity);
             }
         }
 
@@ -79,6 +73,18 @@ public class PublicController {
         emailService.sendVerificationEmail(user.getEmail(), code);
 
         return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/dev/migrate-cities-us")
+    public ResponseEntity<String> migrateCitiesToUS() {
+        List<City> cities = cityRepository.findAll();
+        int count = 0;
+        for (City city : cities) {
+            city.setCountry("US"); // Hardcode US
+            cityRepository.save(city);
+            count++;
+        }
+        return ResponseEntity.ok("Migrated " + count + " cities to 'US'.");
     }
 
     @PostMapping("/verify-email")
@@ -108,9 +114,9 @@ public class PublicController {
         }
     }
 
-    // --- DEV API: Verify All Users (Temporary) ---
     @PostMapping("/dev/verify-all")
     public ResponseEntity<String> verifyAllUsers() {
+        // 1. Verify all users
         List<Users> allUsers = userRepository.findAll();
         int count = 0;
         for (Users u : allUsers) {
@@ -121,7 +127,65 @@ public class PublicController {
                 count++;
             }
         }
-        return ResponseEntity.ok("Successfully verified " + count + " users.");
+
+        // 2. Data Migration: Embed City object for users having only cityCollectionId
+        // We use raw Document to access the old 'cityCollectionId' field which is no
+        // longer in the Java Entity
+        int migratedCount = 0;
+        List<org.bson.Document> userDocs = mongoTemplate.findAll(org.bson.Document.class, "users");
+        for (org.bson.Document doc : userDocs) {
+            // Check if 'city' is missing but 'cityCollectionId' exists
+            if (!doc.containsKey("city") && doc.containsKey("cityCollectionId")) {
+                String cityId = doc.getString("cityCollectionId");
+                if (cityId != null) {
+                    City city = cityRepository.findById(cityId).orElse(null);
+                    if (city != null) {
+                        // Create Lite City (strip parkingLotIds)
+                        City liteCity = new City();
+                        liteCity.setId(city.getId());
+                        liteCity.setCityName(city.getCityName());
+                        liteCity.setState(city.getState());
+                        liteCity.setCountry(city.getCountry());
+                        // No parking IDs
+
+                        doc.put("city", liteCity); // Embed the lite city object
+                        // Optional: doc.remove("cityCollectionId");
+                        mongoTemplate.save(doc, "users");
+                        migratedCount++;
+                    }
+                }
+            }
+        }
+
+        return ResponseEntity
+                .ok("Successfully verified " + count + " users. Migrated city for " + migratedCount + " users.");
+    }
+
+    @PostMapping("/dev/assign-random-cities")
+    public ResponseEntity<String> assignRandomCities() {
+        List<City> cities = cityRepository.findAll();
+        if (cities.isEmpty()) {
+            return ResponseEntity.badRequest().body("No cities found in the database.");
+        }
+
+        List<Users> users = userRepository.findAll();
+        int updatedCount = 0;
+
+        java.util.Random random = new java.util.Random();
+
+        for (Users user : users) {
+            // We assign a random city to ALL users, or just those without one?
+            // User Request: "randomly assign the cities to all users now" -> implying
+            // everyone.
+            City randomCity = cities.get(random.nextInt(cities.size()));
+
+            // setCity handles the "lite" conversion (stripping parkingLotIds)
+            user.setCity(randomCity);
+            userRepository.save(user);
+            updatedCount++;
+        }
+
+        return ResponseEntity.ok("Successfully assigned random cities to " + updatedCount + " users.");
     }
 
     @Autowired
@@ -129,41 +193,40 @@ public class PublicController {
 
     // --- Cascading Dropdown APIs ---
 
-    @GetMapping("/countries")
-    public ResponseEntity<List<String>> getCountries() {
-        // Return distinct countries
-        List<String> countries = mongoTemplate.findDistinct(new org.springframework.data.mongodb.core.query.Query(),
-                "country", City.class, String.class);
-        return ResponseEntity.ok(countries);
-    }
-
     @GetMapping("/states")
-    public ResponseEntity<List<String>> getStates(@RequestParam String country) {
-        // Return distinct states for the given country
-        org.springframework.data.mongodb.core.query.Query query = new org.springframework.data.mongodb.core.query.Query();
-        query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("country").is(country));
-        List<String> states = mongoTemplate.findDistinct(query, "state", City.class, String.class);
+    public ResponseEntity<List<String>> getStates() {
+        // Return distinct states (All are assumed US)
+        List<String> states = mongoTemplate.findDistinct(new org.springframework.data.mongodb.core.query.Query(),
+                "state", City.class, String.class);
         return ResponseEntity.ok(states);
     }
 
     @GetMapping("/cities")
-    public ResponseEntity<List<String>> getCities(@RequestParam(required = false) String country,
+    public ResponseEntity<List<com.example.SPFS.DTO.CityDTO>> getCities(
             @RequestParam(required = false) String state) {
 
-        // If state/country provided, filter. Else return all cities (legacy/fallback)
-        if (country != null && state != null) {
-            org.springframework.data.mongodb.core.query.Query query = new org.springframework.data.mongodb.core.query.Query();
-            query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("country").is(country)
-                    .and("state").is(state));
-            // We return the actual cityNames, distinctly
-            return ResponseEntity.ok(mongoTemplate.findDistinct(query, "cityName", City.class, String.class));
+        List<City> cities;
+
+        // 1. Filtered Search (Uses 'geo_idx' {state:1})
+        if (state != null) {
+            cities = cityRepository.findByState(state);
+        }
+        // 2. Fallback: Return All
+        else {
+            cities = cityRepository.findAll();
         }
 
-        // Original behavior fallback (not recommended for 20k records but keeping for
-        // backward compatibility if needed)
-        // But let's optimize to just return distinct cityNames anyway
-        return ResponseEntity.ok(mongoTemplate.findDistinct(new org.springframework.data.mongodb.core.query.Query(),
-                "cityName", City.class, String.class));
+        // Map to DTOs so frontend gets the ID + Name
+        List<com.example.SPFS.DTO.CityDTO> dtos = cities.stream().map(c -> {
+            com.example.SPFS.DTO.CityDTO dto = new com.example.SPFS.DTO.CityDTO();
+            dto.setId(c.getId());
+            dto.setCityName(c.getCityName());
+            dto.setState(c.getState());
+            dto.setCountry(c.getCountry());
+            return dto;
+        }).collect(java.util.stream.Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
     }
 
     @PostMapping("/resend-verification-code")
@@ -180,7 +243,7 @@ public class PublicController {
             return ResponseEntity.ok(new com.example.SPFS.DTO.MessageResponse("User is already verified."));
         }
 
-        // Generate new code or resend existing? Let's generate new to be safe.
+        // generate the random code new
         String code = String.valueOf((int) ((Math.random() * 900000) + 100000));
         user.setVerificationCode(code);
         userRepository.save(user);
@@ -196,8 +259,6 @@ public class PublicController {
         Users user = userRepository.findByEmail(email).orElse(null);
 
         if (user == null) {
-            // For security, maybe don't reveal if user exists? But for now, let's be
-            // explicit as requested.
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new com.example.SPFS.DTO.MessageResponse("Error: User not found."));
         }
@@ -232,9 +293,12 @@ public class PublicController {
         return ResponseEntity.ok(new com.example.SPFS.DTO.MessageResponse("Password reset successfully!"));
     }
 
-    @GetMapping("/cities/{cityName}/parking-lots")
-    public ResponseEntity<List<ParkingLot>> getParkingLotsByCity(@PathVariable String cityName) {
-        City city = cityRepository.findByCityName(cityName).orElse(null);
+    @GetMapping("/cities/{cityId}/parking-lots")
+    public ResponseEntity<List<com.example.SPFS.DTO.ParkingLotResponseDTO>> getParkingLotsByCity(
+            @PathVariable String cityId) {
+        // Precise Lookup (ID based) - Uses Primary Key Index (O(1))
+        City city = cityRepository.findById(cityId).orElse(null);
+
         if (city == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -243,20 +307,36 @@ public class PublicController {
         }
         List<ParkingLot> parkingLots = parkingLotRepository.findAllById(city.getParkingLotIds());
 
-        // Update with live availability from Redis with Fallback
-        for (ParkingLot lot : parkingLots) {
+        // Convert to DTOs
+        List<com.example.SPFS.DTO.ParkingLotResponseDTO> dtos = parkingLots.stream().map(lot -> {
+            com.example.SPFS.DTO.ParkingLotResponseDTO dto = new com.example.SPFS.DTO.ParkingLotResponseDTO();
+            dto.setId(lot.getId());
+            dto.setParkingName(lot.getParkingName());
+            dto.setFullAddress(lot.getFullAddress());
+            dto.setTotalCapacity(lot.getTotalCapacity());
+            dto.setSlotIds(lot.getSlotIds());
+
+            // 1. Sync Redis Status (AP Fallback)
             try {
-                Long size = redisTemplate.opsForSet().size("lot:slots:" + lot.getId());
-                if (size != null) {
-                    lot.setAvailableSlots(size.intValue());
+                Long available = redisTemplate.opsForSet().size("lot:slots:" + lot.getId());
+                if (available != null) {
+                    dto.setAvailableSlots(available.intValue());
+                } else {
+                    dto.setAvailableSlots(lot.getAvailableSlots());
                 }
             } catch (Exception e) {
-                // Redis is down: Fallback to MongoDB 'availableSlots' field (AP)
                 System.err.println("Warning: Redis is unavailable. Serving stale data for lot " + lot.getId());
+                dto.setAvailableSlots(lot.getAvailableSlots());
             }
-        }
 
-        return ResponseEntity.ok(parkingLots);
+            // 2. Populate City Info
+            // 2. Populate City Name
+            dto.setCityName(city.getCityName());
+
+            return dto;
+        }).collect(java.util.stream.Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
     }
 
 }

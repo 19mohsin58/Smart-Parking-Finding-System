@@ -40,7 +40,7 @@ public class AdminService {
         private MongoTemplate mongoTemplate;
 
         // --- CRUD Create: Add Lot and Initialize Redis ---
-        public ParkingLot createLot(ParkingLot lot, String cityName, String state, String country) {
+        public ParkingLot createLot(ParkingLot lot, String cityName, String state) {
                 // 0. Constraint: Check if parking lot with same name exists
                 if (parkingLotRepository.existsByParkingName(lot.getParkingName())) {
                         throw new RuntimeException(
@@ -53,18 +53,18 @@ public class AdminService {
                 ParkingLot savedLot = parkingLotRepository.save(lot); // Lot is now in DB with _id
 
                 // 2. Find or Create the City Document (Crucial Linking Step)
-                // Optimization: Use the Compound Index (Country -> State)
-                java.util.List<City> citiesInState = cityRepository.findByCountryAndState(country, state);
+                // Optimization: Use the Index (State Only)
+                java.util.List<City> citiesInState = cityRepository.findByState(state);
 
                 City city = citiesInState.stream()
                                 .filter(c -> c.getCityName().equalsIgnoreCase(cityName))
                                 .findFirst()
                                 .orElseGet(() -> {
-                                        // City doesn't exist in this State/Country, create it
+                                        // City doesn't exist, create it
                                         City newCity = new City();
                                         newCity.setCityName(cityName);
                                         newCity.setState(state);
-                                        newCity.setCountry(country);
+                                        newCity.setCountry("US");
                                         return cityRepository.save(newCity);
                                 });
 
@@ -148,27 +148,10 @@ public class AdminService {
                                                 dto.setAvailableSlots(lot.getAvailableSlots());
                                         }
 
-                                        // 2. Populate City (Reverse Lookups - We need the method back in Repo OR
-                                        // iterate
-                                        // efficiently)
-                                        // Since I reverted the repo method, I will find by searching (less efficient
-                                        // but
-                                        // strict per user revert request?)
-                                        // No, User said 'totally against parking lot HAS city field'.
-                                        // Adding a method to REPO is fine, modifying ENTITY was the issue.
-                                        // I will use a query here or re-add the repo method if allowed.
-                                        // Ideally, finding the city that has this lot ID in its list.
-                                        // To avoid modifying Repo again if user hates that too, I can use MongoTemplate
-                                        // here.
                                         Query query = new Query(Criteria.where("parkingLotIds").is(lot.getId()));
                                         City city = mongoTemplate.findOne(query, City.class);
                                         if (city != null) {
-                                                com.example.SPFS.DTO.CityDTO cityDTO = new com.example.SPFS.DTO.CityDTO();
-                                                cityDTO.setId(city.getId());
-                                                cityDTO.setCityName(city.getCityName());
-                                                cityDTO.setState(city.getState());
-                                                cityDTO.setCountry(city.getCountry());
-                                                dto.setCity(cityDTO);
+                                                dto.setCityName(city.getCityName());
                                         }
 
                                         return dto;

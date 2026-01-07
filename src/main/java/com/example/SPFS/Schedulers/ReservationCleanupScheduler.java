@@ -31,12 +31,12 @@ public class ReservationCleanupScheduler {
                 .findByReservationStatusAndEndTimeBefore("ACTIVE", LocalDateTime.now());
 
         for (Reservations reservation : expiredReservations) {
-            // 1. Mark as COMPLETED
-            reservation.setReservationStatus("COMPLETED");
-            reservationRepository.save(reservation);
-
             // 1.5 Sync DB Status & 2. Return to Redis
             try {
+                // 1. Mark as COMPLETED (Optimistic Update)
+                reservation.setReservationStatus("COMPLETED");
+                reservationRepository.save(reservation);
+
                 // Find Slot directly by the stored ID
                 com.example.SPFS.Entities.Slot dbSlot = null;
                 if (reservation.getSlotId() != null) {
@@ -50,8 +50,9 @@ public class ReservationCleanupScheduler {
                     // 2. Return slot to Redis Set
                     String slotKey = "lot:slots:" + reservation.getParkingLotId();
                     redisTemplate.opsForSet().add(slotKey, dbSlot.getSlotNumber());
-                    System.out.println("DEBUG SCHEDULER: Returned slot " + dbSlot.getSlotNumber() + " to Redis ("
-                            + slotKey + ").");
+                    // System.out.println("DEBUG SCHEDULER: Returned slot " + dbSlot.getSlotNumber()
+                    // + " to Redis ("
+                    // + slotKey + ").");
                 } else {
                     System.err.println("DEBUG SCHEDULER ERROR: Slot not found for reservation: " + reservation.getId()
                             + ", SlotID stored: " + reservation.getSlotId());
@@ -59,6 +60,11 @@ public class ReservationCleanupScheduler {
             } catch (Exception e) {
                 System.err.println("DEBUG SCHEDULER EXCEPTION: " + e.getMessage());
                 e.printStackTrace();
+
+                // ROLLBACK: Revert status to ACTIVE so it can be picked up again
+                System.out.println("DEBUG SCHEDULER: Rolling back status for reservation " + reservation.getId());
+                reservation.setReservationStatus("ACTIVE");
+                reservationRepository.save(reservation);
             }
 
             // 3. Release User Lock

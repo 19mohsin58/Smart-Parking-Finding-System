@@ -13,7 +13,24 @@ public class Users {
     private String fullName;
     private String email;
     private String password; // Stored as Hashed value
-    private String cityCollectionId; // Link to cities collection
+    private City city; // Embedded City Object (Lite version)
+
+    public void setCity(City city) {
+        if (city != null) {
+            // Create a "lite" version of the city to avoid embedding heavy data like
+            // parkingLotIds
+            City liteCity = new City();
+            liteCity.setId(city.getId());
+            liteCity.setCityName(city.getCityName());
+            liteCity.setState(city.getState());
+            liteCity.setCountry(city.getCountry());
+            // Do NOT copy parkingLotIds
+            this.city = liteCity;
+        } else {
+            this.city = null;
+        }
+    }
+
     private String role; // "USER" or "ADMIN"
 
     private boolean isVerified = false; // Default to false

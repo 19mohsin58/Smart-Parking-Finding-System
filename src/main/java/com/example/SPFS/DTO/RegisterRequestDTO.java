@@ -9,7 +9,7 @@ public class RegisterRequestDTO {
     private String password;
 
     // Geographical Selections
-    private String country;
+
     private String state;
     private String cityName;
 }

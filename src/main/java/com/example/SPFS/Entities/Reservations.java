@@ -9,7 +9,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Document(collection = "reservations")
 @org.springframework.data.mongodb.core.index.CompoundIndexes({
         @org.springframework.data.mongodb.core.index.CompoundIndex(name = "user_active_idx", def = "{'userId': 1, 'reservationStatus': 1}"),
-        @org.springframework.data.mongodb.core.index.CompoundIndex(name = "user_history_idx", def = "{'userId': 1, 'endTime': -1}")
+        @org.springframework.data.mongodb.core.index.CompoundIndex(name = "user_history_idx", def = "{'userId': 1, 'endTime': -1}"),
+        @org.springframework.data.mongodb.core.index.CompoundIndex(name = "scheduler_cleanup_idx", def = "{'reservationStatus': 1, 'endTime': 1}")
 })
 public class Reservations {
     @Id

@@ -66,7 +66,7 @@ public class AuthController {
                                 springUser.getUsername(),
                                 role,
                                 dbUser.getFullName(),
-                                dbUser.getCityCollectionId(),
+                                dbUser.getCity() != null ? dbUser.getCity().getId() : null,
                                 dbUser.isVerified()));
         }
 }

@@ -45,13 +45,8 @@ public class ReservationService {
 
         try {
             // 1. Atomic Check and Book from Redis
-            Long sizeBefore = redisTemplate.opsForSet().size(slotKey);
-            System.out.println("DEBUG: Booking Slot. Key: " + slotKey + ", Size Before: " + sizeBefore);
 
             Object slotObj = redisTemplate.opsForSet().pop(slotKey);
-
-            Long sizeAfter = redisTemplate.opsForSet().size(slotKey);
-            System.out.println("DEBUG: Popped Slot: " + slotObj + ", Size After: " + sizeAfter);
 
             if (slotObj == null) {
                 throw new RuntimeException("Parking Lot is Full");
@@ -123,38 +118,53 @@ public class ReservationService {
             throw new RuntimeException("Reservation is not active");
         }
 
-        // 1. Update DB Status
-        reservation.setReservationStatus("CANCELLED");
-        reservationRepository.save(reservation);
+        // 1. Transaction Start (Try-Catch with Rollback)
+        try {
+            // 1.1 Mark as CANCELLED (Optimistic Update)
+            reservation.setReservationStatus("CANCELLED");
+            reservationRepository.save(reservation);
 
-        // 1.5 Sync DB Status (Mark Slot as AVAILABLE)
-        // Optimization: Find Slot directly by the stored ID
-        com.example.SPFS.Entities.Slot dbSlot = slotRepository.findById(reservation.getSlotId())
-                .orElse(null);
-
-        if (dbSlot != null) {
-            dbSlot.setStatus("AVAILABLE");
-            slotRepository.save(dbSlot);
-
-            // 1.8 Sync ParkingLot Available Count (For AP Read Fallback)
-            com.example.SPFS.Entities.ParkingLot lot = parkingLotRepository.findById(reservation.getParkingLotId())
+            // 1.5 Sync DB Status (Mark Slot as AVAILABLE)
+            // Optimization: Find Slot directly by the stored ID
+            com.example.SPFS.Entities.Slot dbSlot = slotRepository.findById(reservation.getSlotId())
                     .orElse(null);
-            if (lot != null) {
-                // We don't check max capacity here to keep it simple, but in prod we might
-                lot.setAvailableSlots(lot.getAvailableSlots() + 1);
-                parkingLotRepository.save(lot);
-            }
 
-            // 2. Return Slot to Redis
-            String slotKey = "lot:slots:" + reservation.getParkingLotId();
-            redisTemplate.opsForSet().add(slotKey, dbSlot.getSlotNumber());
-            System.out
-                    .println("DEBUG CANCEL: Returned slot " + dbSlot.getSlotNumber() + " to Redis (" + slotKey + ").");
-        } else {
-            System.err.println("DEBUG CANCEL ERROR: Slot not found for legacy reservation: " + reservationId);
+            if (dbSlot != null) {
+                dbSlot.setStatus("AVAILABLE");
+                slotRepository.save(dbSlot);
+
+                // 1.8 Sync ParkingLot Available Count (For AP Read Fallback)
+                com.example.SPFS.Entities.ParkingLot lot = parkingLotRepository.findById(reservation.getParkingLotId())
+                        .orElse(null);
+                if (lot != null) {
+                    // We don't check max capacity here to keep it simple, but in prod we might
+                    lot.setAvailableSlots(lot.getAvailableSlots() + 1);
+                    parkingLotRepository.save(lot);
+                }
+
+                // 2. Return Slot to Redis
+                String slotKey = "lot:slots:" + reservation.getParkingLotId();
+                redisTemplate.opsForSet().add(slotKey, dbSlot.getSlotNumber());
+                System.out
+                        .println("DEBUG CANCEL: Returned slot " + dbSlot.getSlotNumber() + " to Redis (" + slotKey
+                                + ").");
+            } else {
+                System.err.println("DEBUG CANCEL ERROR: Slot not found for legacy reservation: " + reservationId);
+            }
+        } catch (Exception e) {
+            System.err.println("DEBUG CANCEL EXCEPTION: " + e.getMessage());
+            e.printStackTrace();
+
+            // ROLLBACK: Revert status to ACTIVE so the user can try again
+            System.out.println("DEBUG CANCEL: Rolling back status for reservation " + reservation.getId());
+            reservation.setReservationStatus("ACTIVE");
+            reservationRepository.save(reservation);
+            // Re-throw so Controller knows it failed
+            throw new RuntimeException("Failed to cancel reservation. Please try again.");
         }
 
-        // 3. Release User Lock
+        // 3. Release User Lock (Outside Try-Catch to ensure unlock happens if logic
+        // succeeds)
         String userLockKey = "user:active_booking:" + reservation.getUserId();
         redisTemplate.delete(userLockKey);
     }

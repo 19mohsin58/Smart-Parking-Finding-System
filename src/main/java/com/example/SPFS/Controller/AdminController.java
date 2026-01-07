@@ -19,9 +19,9 @@ public class AdminController {
     // --- Parking Lot CRUD ---
     @PostMapping("/lots")
     public ResponseEntity<ParkingLot> createParkingLot(@RequestBody ParkingLot lot, @RequestParam String cityName,
-            @RequestParam String state, @RequestParam String country) {
+            @RequestParam String state) {
         // Creates Lot in Mongo and initializes Redis counter
-        ParkingLot savedLot = adminService.createLot(lot, cityName, state, country);
+        ParkingLot savedLot = adminService.createLot(lot, cityName, state);
         return ResponseEntity.ok(savedLot);
     }
 

@@ -16,6 +16,9 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private com.example.SPFS.Repositories.CityRepository cityRepository;
+
     public Users updateUser(String userId, UpdateProfileDTO dto) {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -30,7 +33,9 @@ public class UserService {
         }
 
         if (dto.getCityCollectionId() != null && !dto.getCityCollectionId().isEmpty()) {
-            user.setCityCollectionId(dto.getCityCollectionId());
+            com.example.SPFS.Entities.City city = cityRepository.findById(dto.getCityCollectionId())
+                    .orElseThrow(() -> new RuntimeException("City not found"));
+            user.setCity(city);
         }
 
         if (dto.getPassword() != null && !dto.getPassword().isEmpty()) {

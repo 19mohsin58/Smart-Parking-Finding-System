@@ -61,7 +61,7 @@
                         <input type="text" placeholder="Parking Name" class="border p-2 rounded" required>
                         <input type="text" placeholder="Address" class="border p-2 rounded" required>
                         <input type="number" placeholder="Capacity" class="border p-2 rounded" required>
-                        <input type="text" placeholder="Country" class="border p-2 rounded" required>
+
                         <input type="text" placeholder="State" class="border p-2 rounded" required>
                         <input type="text" placeholder="City Name" class="border p-2 rounded" required>
                         <button type="submit"
@@ -73,12 +73,22 @@
                 <!-- Controls: Filter & Search -->
                 <div class="flex justify-between items-center mb-4">
                     <div class="flex items-center space-x-2">
-                        <label class="font-semibold text-gray-700">Filter by City:</label>
-                        <select id="city-filter" onchange="applyFilters()" class="border p-2 rounded bg-white">
-                            <option value="ALL">All Cities</option>
+                        <label class="font-semibold text-gray-700">Filter by State:</label>
+                        <select id="state-filter" onchange="handleStateFilterChange()"
+                            class="border p-2 rounded bg-white">
+                            <option value="ALL">All States</option>
                             <!-- Populated by JS -->
                         </select>
                     </div>
+                    <div class="flex items-center space-x-2">
+                        <label class="font-semibold text-gray-700">Then City:</label>
+                        <select id="city-filter" class="border p-2 rounded bg-white" disabled>
+                            <option value="ALL">Select State First</option>
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <button onclick="handleSearch()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">Search</button>
                     <div class="text-sm text-gray-500">
                         Showing <span id="showing-count">0</span> lots
                     </div>
@@ -153,21 +163,21 @@
     <script>
         // --- MOCK DATA (Expanded for Pagination) ---
         const MOCK_LOTS = [
-            { id: '1', parkingName: 'City Center Mall', city: 'Pisa', fullAddress: '123 Main St', availableSlots: 15, totalCapacity: 200 },
-            { id: '2', parkingName: 'Station West', city: 'Pisa', fullAddress: '45 Railway Ave', availableSlots: 2, totalCapacity: 50 },
-            { id: '3', parkingName: 'Airport Long Term', city: 'Pisa', fullAddress: 'Terminal 1', availableSlots: 500, totalCapacity: 1200 },
-            { id: '4', parkingName: 'University Campus', city: 'Pisa', fullAddress: 'Via Diotisalvi', availableSlots: 0, totalCapacity: 100 },
-            { id: '5', parkingName: 'Duomo Park', city: 'Florence', fullAddress: 'Piazza del Duomo', availableSlots: 10, totalCapacity: 80 },
-            { id: '6', parkingName: 'Uffizi Garage', city: 'Florence', fullAddress: 'Via dei Leoni', availableSlots: 5, totalCapacity: 60 },
-            { id: '7', parkingName: 'Santa Maria Novella', city: 'Florence', fullAddress: 'Piazza Stazione', availableSlots: 120, totalCapacity: 300 },
-            { id: '8', parkingName: 'Ponte Vecchio Spot', city: 'Florence', fullAddress: 'Lungarno', availableSlots: 0, totalCapacity: 20 },
-            { id: '9', parkingName: 'Colosseum Park', city: 'Rome', fullAddress: 'Via dei Fori Imperiali', availableSlots: 20, totalCapacity: 150 },
-            { id: '10', parkingName: 'Termini Station', city: 'Rome', fullAddress: 'Piazza dei Cinquecento', availableSlots: 200, totalCapacity: 500 },
-            { id: '11', parkingName: 'Vatican Museums', city: 'Rome', fullAddress: 'Viale Vaticano', availableSlots: 15, totalCapacity: 100 },
-            { id: '12', parkingName: 'Trevi Fountain', city: 'Rome', fullAddress: 'Via delle Muratte', availableSlots: 0, totalCapacity: 30 },
-            { id: '13', parkingName: 'Navona Square', city: 'Rome', fullAddress: 'Piazza Navona', availableSlots: 5, totalCapacity: 40 },
-            { id: '14', parkingName: 'Pantheon Garage', city: 'Rome', fullAddress: 'Via della Rotonda', availableSlots: 8, totalCapacity: 25 },
-            { id: '15', parkingName: 'Central Park', city: 'Milan', fullAddress: 'Parco Sempione', availableSlots: 50, totalCapacity: 200 }
+            { id: '1', parkingName: 'Downtown Garage', city: 'New York', state: 'NY', fullAddress: '123 Broadway', availableSlots: 15, totalCapacity: 200 },
+            { id: '2', parkingName: 'Wall St Parking', city: 'New York', state: 'NY', fullAddress: '45 Wall St', availableSlots: 2, totalCapacity: 50 },
+            { id: '3', parkingName: 'Central Park North', city: 'New York', state: 'NY', fullAddress: '110th St', availableSlots: 500, totalCapacity: 1200 },
+            { id: '4', parkingName: 'Sunset Blvd Spot', city: 'Los Angeles', state: 'CA', fullAddress: 'Sunset Blvd', availableSlots: 0, totalCapacity: 100 },
+            { id: '5', parkingName: 'Hollywood Bowl', city: 'Los Angeles', state: 'CA', fullAddress: 'Highland Ave', availableSlots: 10, totalCapacity: 80 },
+            { id: '6', parkingName: 'Santa Monica Pier', city: 'Santa Monica', state: 'CA', fullAddress: 'Ocean Ave', availableSlots: 5, totalCapacity: 60 },
+            { id: '7', parkingName: 'Union Station', city: 'Chicago', state: 'IL', fullAddress: 'Canal St', availableSlots: 120, totalCapacity: 300 },
+            { id: '8', parkingName: 'Millennium Park', city: 'Chicago', state: 'IL', fullAddress: 'Michigan Ave', availableSlots: 0, totalCapacity: 20 },
+            { id: '9', parkingName: 'Navy Pier Lot', city: 'Chicago', state: 'IL', fullAddress: 'Grand Ave', availableSlots: 20, totalCapacity: 150 },
+            { id: '10', parkingName: 'Toyota Center', city: 'Houston', state: 'TX', fullAddress: 'Polk St', availableSlots: 200, totalCapacity: 500 },
+            { id: '11', parkingName: 'Space Center', city: 'Houston', state: 'TX', fullAddress: 'NASA Pkwy', availableSlots: 15, totalCapacity: 100 },
+            { id: '12', parkingName: 'Alamo Plaza', city: 'San Antonio', state: 'TX', fullAddress: 'Alamo Plaza', availableSlots: 0, totalCapacity: 30 },
+            { id: '13', parkingName: 'River Walk', city: 'San Antonio', state: 'TX', fullAddress: 'River Walk', availableSlots: 5, totalCapacity: 40 },
+            { id: '14', parkingName: 'Brickell City', city: 'Miami', state: 'FL', fullAddress: 'Brickell Ave', availableSlots: 8, totalCapacity: 25 },
+            { id: '15', parkingName: 'South Beach', city: 'Miami Beach', state: 'FL', fullAddress: 'Ocean Dr', availableSlots: 50, totalCapacity: 200 }
         ];
 
         const MOCK_PEAK_HOURS = [
@@ -212,30 +222,67 @@
 
         // --- INIT ---
         function initDashboard() {
-            populateCityFilter();
+            populateStateFilter();
             applyFilters(); // Loads initial table
         }
 
-        function populateCityFilter() {
-            const cities = [...new Set(MOCK_LOTS.map(l => l.city))]; // Unique cities
-            const select = document.getElementById('city-filter');
-            cities.forEach(city => {
+        function populateStateFilter() {
+            const states = [...new Set(MOCK_LOTS.map(l => l.state))]; // Unique states
+            const select = document.getElementById('state-filter');
+            // Keep first option (All States)
+            select.innerHTML = '<option value="ALL">All States</option>';
+            states.forEach(state => {
                 const opt = document.createElement('option');
-                opt.value = city;
-                opt.textContent = city;
+                opt.value = state;
+                opt.textContent = state;
                 select.appendChild(opt);
             });
         }
 
-        // --- FILTER & PAGINATION ---
-        function applyFilters() {
+        function handleStateFilterChange() {
+            const state = document.getElementById('state-filter').value;
+            const citySelect = document.getElementById('city-filter');
+
+            if (state === 'ALL') {
+                citySelect.innerHTML = '<option value="ALL">Select State First</option>';
+                citySelect.disabled = true;
+                return;
+            }
+
+            // Populate Cities for this State
+            const cities = [...new Set(MOCK_LOTS.filter(l => l.state === state).map(l => l.city))];
+            citySelect.innerHTML = '<option value="ALL">Select City</option>';
+            cities.forEach(city => {
+                const opt = document.createElement('option');
+                opt.value = city;
+                opt.textContent = city;
+                citySelect.appendChild(opt);
+            });
+            citySelect.disabled = false;
+        }
+
+        function handleSearch() {
+            const state = document.getElementById('state-filter').value;
             const city = document.getElementById('city-filter').value;
 
-            if (city === 'ALL') {
-                filteredLots = [...MOCK_LOTS];
-            } else {
-                filteredLots = MOCK_LOTS.filter(l => l.city === city);
+            if (state === 'ALL' || city === 'ALL') {
+                alert("Please select both a State and a City to search.");
+                return;
             }
+
+            applyFilters();
+        }
+
+        // --- FILTER & PAGINATION ---
+        function applyFilters() {
+            const state = document.getElementById('state-filter').value;
+            const city = document.getElementById('city-filter').value;
+
+            filteredLots = MOCK_LOTS.filter(l => {
+                const stateMatch = (state === 'ALL') || (l.state === state);
+                const cityMatch = (city === 'ALL') || (l.city === city);
+                return stateMatch && cityMatch;
+            });
 
             currentPage = 1; // Reset to page 1 on filter change
             renderTable();
@@ -326,16 +373,17 @@
                 parkingName: e.target[0].value,
                 fullAddress: e.target[1].value,
                 // Capacity is target[2], Country [3], State [4], City [5]
-                country: e.target[3].value,
-                state: e.target[4].value,
-                city: e.target[5].value,
+                // Country is removed, hardcode US internally if needed for display
+                country: 'US',
+                state: e.target[3].value,
+                city: e.target[4].value,
                 availableSlots: parseInt(e.target[2].value), // Init as full capacity for demo
                 totalCapacity: parseInt(e.target[2].value)
             };
             MOCK_LOTS.unshift(newLot); // Add to front
             alert("Lot Created (Mock)");
             // Refresh filters and table
-            populateCityFilter(); // In case new city
+            populateStateFilter(); // In case new state
             applyFilters();
             e.target.reset();
         }
