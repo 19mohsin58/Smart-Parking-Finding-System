@@ -1,0 +1,47 @@
+@startuml Admin_UseCases
+left to right direction
+skinparam packageStyle rectangle
+skinparam ranksep 40
+skinparam nodesep 30
+skinparam linetype polyline
+
+title **SPFS - Administrator Use Cases**
+actor "Administrator" as Admin
+rectangle "Smart Parking Finder System (SPFS)" {
+    ' **Infrastructure FIRST** (left side)
+    rectangle "Infrastructure Management" #LightBlue {
+        usecase "Manage Parking Infrastructures" as UC10
+        usecase "Add Parking Lot" as UC11
+        usecase "Delete Parking Lot" as UC12
+        usecase "Auto-Create City Document" as UC10a
+        usecase "Auto-Create Slots in Redis & MongoDB" as ucDB
+        usecase "MongoDB & Redis Cleanup" as MRC
+    }
+    
+    ' **Analytics LAST** (right/bottom - no overlap)
+    rectangle "Analytics Pipeline" #LightGreen {
+        usecase "View System Analytics" as UC9
+        usecase "Peak Hours" as PH
+        usecase "Duration Stats" as DS
+        usecase "Loyalty Tiers" as LT
+    }
+}
+' **Vertical actor positioning** - Analytics stays bottom-right
+Admin -down- UC10
+Admin -down- UC11
+Admin -down- UC12
+Admin -right- UC9
+' **Clean internals** - no crossing lines
+UC11 ..> ucDB : <<includes>>\n{Redis must be online}
+UC12 ..> MRC : <<includes>>
+UC10 <.. UC10a : <<extends>>\n(If city missing during Add)
+UC11 <.. UC10a : <<extends>>\n(If city is new)
+UC9 ..> PH
+UC9 ..> DS
+UC9 ..> LT
+
+note left of UC12 : {pre-condition: NO active\nreservations exist}
+note left of ucDB : **Compensation**: Redis rollback\nif MongoDB fails
+
+
+@enduml

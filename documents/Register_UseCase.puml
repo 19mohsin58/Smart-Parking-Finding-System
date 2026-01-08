@@ -1,0 +1,18 @@
+@startuml Register_UseCase
+
+title **SPFS Registration Flow**
+
+actor "Unregistered User" as guest
+actor "External SMTP Service" as smtp
+
+rectangle SPFS {
+  usecase "Register Account" as uc1
+  usecase "Verify E-mail Address (OTP)" as uc2
+}
+
+guest -- uc1
+uc1 ..> uc2 : <<include>>
+uc2 -- smtp : sends OTP email
+
+
+@enduml

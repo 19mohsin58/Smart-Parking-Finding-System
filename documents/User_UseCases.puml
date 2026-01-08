@@ -1,0 +1,53 @@
+@startuml User_UseCases
+left to right direction
+skinparam ranksep 60
+
+title **SPFS Registered User Use Cases**
+
+actor "Registered User" as user
+actor "External SMTP Service" as smtp
+
+
+rectangle SPFS {
+  usecase "Login" as uc1
+  usecase "Search & View Parking Lots" as uc2
+  usecase "Book Parking Slot" as uc3
+  usecase "Check Single Active Booking Rule" as uc4
+  usecase "Cancel Reservation" as uc5
+  usecase "Redis Compensation + MongoDB persistence" as uc6
+  usecase "Request Password Reset" as rpr
+  usecase "Send Reset Code Email\n(Generate+Store Code)" as src
+  usecase "Reset Password" as rp
+  usecase "View/Update User Profile" as uc7
+  usecase "View Reservations History" as uc8
+
+}
+
+user -- uc1
+user -- uc2
+user -- uc3
+uc3 ..> uc4 : <<include>>
+user -- uc5
+uc5 ..> uc6 : <<include>>
+user -- rpr : POST /forgot-password
+rpr ..> src : <<include>>
+src -- smtp : 6-digit OTP
+user --> rp : POST /reset-password
+rp ..> src : <<include>> : validate code
+user -- uc7
+user -- uc8
+
+
+note right of uc6
+  *MongoDB:* Reservation.status = "CANCELLED"
+  
+  *Redis compensation*:
+  - SADD lotslots{lotId} {slotNumber}
+    = Returns slot to pool.
+  - DEL useractivebooking{userId}
+    = Releases user lock.
+    
+  *Atomic & idempotent* = Safe for retries
+end note
+
+@enduml
