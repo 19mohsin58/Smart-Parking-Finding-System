@@ -1,8 +1,5 @@
 package unipi.lsmdb.SPFS.Config;
 
-import com.mongodb.ReadPreference;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
@@ -24,15 +21,14 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
     }
 
     @Override
-    public MongoClient mongoClient() {
-        // Enforce Eventual Consistency: Prefer reading from Secondaries (Replicas)
+    public com.mongodb.client.MongoClient mongoClient() {
+        com.mongodb.ConnectionString connectionString = new com.mongodb.ConnectionString(
+                mongoUri != null && !mongoUri.isEmpty() ? mongoUri : null);
+
         com.mongodb.MongoClientSettings settings = com.mongodb.MongoClientSettings.builder()
-                .applyConnectionString(new com.mongodb.ConnectionString(
-                        mongoUri != null ? mongoUri : "mongodb://localhost:27017/SPFS_DB"))
-                .readPreference(ReadPreference.secondaryPreferred())
+                .applyConnectionString(connectionString)
                 .build();
 
-        return MongoClients.create(settings);
+        return com.mongodb.client.MongoClients.create(settings);
     }
 }
-
