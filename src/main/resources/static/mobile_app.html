@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SPFS Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .screen {
+            display: none;
+            padding-bottom: 90px;
+        }
+
+        .screen.active {
+            display: block;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9CA3AF;
+        }
+
+        .input-field {
+            padding-left: 48px;
+            transition: all 0.2s;
+        }
+
+        .input-field:focus {
+            border-color: #2563EB;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-900 select-none">
+
+    <!-- APP CONTAINER -->
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-2xl relative overflow-hidden flex flex-col">
+
+        <!-- HEADER -->
+        <header
+            class="bg-white/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4 flex justify-between items-center border-b border-gray-100">
+            <div class="flex items-center space-x-2">
+                <div class="bg-blue-600 rounded-lg p-1.5 shadow-lg shadow-blue-600/20">
+                    <i class="fas fa-parking text-white text-lg"></i>
+                </div>
+                <span class="font-bold text-lg tracking-tight text-slate-800">SPFS</span>
+            </div>
+            <div class="flex items-center space-x-1 bg-green-50 px-3 py-1.5 rounded-full border border-green-100">
+                <span class="relative flex h-2 w-2">
+                    <span
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                <span class="text-[10px] font-bold text-green-700 uppercase tracking-wide ml-1">Live</span>
+            </div>
+        </header>
+
+        <!-- 1. LOGIN SCREEN -->
+        <div id="screen-login" class="screen active p-8 flex flex-col justify-center min-h-[85vh]">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-slate-900 mb-2">Welcome back</h1>
+                <p class="text-slate-500">Please enter your details to sign in.</p>
+            </div>
+            <form onsubmit="app.login(event)" class="space-y-5">
+                <div class="space-y-4">
+                    <div class="input-group">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email"
+                            class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-4 input-field font-medium"
+                            placeholder="Email Address" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password"
+                            class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-4 input-field font-medium"
+                            placeholder="Password" required>
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" onclick="app.navTo('forgot-password')"
+                        class="text-sm font-semibold text-blue-600 hover:text-blue-700">Forgot Password?</button>
+                </div>
+                <button type="submit"
+                    class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-bold rounded-xl text-sm px-5 py-4 text-center shadow-lg shadow-blue-600/30 transition-transform active:scale-[0.98]">Sign
+                    In</button>
+            </form>
+            <div class="mt-8 text-center">
+                <p class="text-slate-500 text-sm">Don't have an account? <button onclick="app.navTo('signup')"
+                        class="font-bold text-blue-600 hover:underline ml-1">Sign up free</button></p>
+            </div>
+        </div>
+
+        <!-- 2. SIGNUP SCREEN -->
+        <div id="screen-signup" class="screen p-8 min-h-[90vh]">
+            <div class="mb-8">
+                <button onclick="app.navTo('login')"
+                    class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-6 hover:bg-gray-200 transition-colors"><i
+                        class="fas fa-arrow-left text-slate-600"></i></button>
+                <h1 class="text-3xl font-bold text-slate-900 mb-2">Create Account</h1>
+                <p class="text-slate-500">Join SPFS to find parking smarter.</p>
+            </div>
+            <form onsubmit="app.signup(event)" class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Full Name</label>
+                    <div class="input-group"><i class="fas fa-user input-icon"></i><input type="text"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 input-field font-medium outline-none"
+                            placeholder="John Doe" required></div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Email</label>
+                    <div class="input-group"><i class="fas fa-envelope input-icon"></i><input type="email"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 input-field font-medium outline-none"
+                            placeholder="name@company.com" required></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-500 uppercase ml-1">State</label>
+                        <div class="relative"><select
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm font-medium outline-none appearance-none">
+                                <option>NY</option>
+                                <option>CA</option>
+                                <option>TX</option>
+                            </select><i
+                                class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-500 uppercase ml-1">City</label>
+                        <div class="relative"><select
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm font-medium outline-none appearance-none">
+                                <option>New York City</option>
+                                <option>Buffalo</option>
+                            </select><i
+                                class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Password</label>
+                    <div class="input-group"><i class="fas fa-lock input-icon"></i><input type="password"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 input-field font-medium outline-none"
+                            placeholder="Create a strong password" required></div>
+                </div>
+                <div class="pt-2"><button type="submit"
+                        class="w-full text-white bg-blue-600 hover:bg-blue-700 font-bold rounded-xl text-sm px-5 py-4 text-center shadow-lg shadow-blue-600/30 transition-transform active:scale-[0.98]">Create
+                        Account</button></div>
+            </form>
+        </div>
+
+        <!-- 3. FORGOT PASSWORD -->
+        <div id="screen-forgot-password" class="screen p-8 flex flex-col justify-center min-h-[85vh]">
+            <div class="mb-8">
+                <button onclick="app.navTo('login')"
+                    class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-6 hover:bg-gray-200 transition-colors"><i
+                        class="fas fa-arrow-left text-slate-600"></i></button>
+                <div class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6"><i
+                        class="fas fa-key text-blue-600 text-2xl"></i></div>
+                <h1 class="text-3xl font-bold text-slate-900 mb-2">Forgot password?</h1>
+                <p class="text-slate-500">No worries, we'll send you reset instructions.</p>
+            </div>
+            <form onsubmit="app.forgotPassword(event)" class="space-y-6">
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Email Address</label>
+                    <div class="input-group"><i class="fas fa-envelope input-icon"></i><input type="email"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 input-field font-medium outline-none"
+                            placeholder="Enter your email" required></div>
+                </div>
+                <button type="submit"
+                    class="w-full text-white bg-blue-600 hover:bg-blue-700 font-bold rounded-xl text-sm px-5 py-4 text-center shadow-lg shadow-blue-600/30 transition-transform active:scale-[0.98]">Send
+                    Reset Link</button>
+            </form>
+        </div>
+
+        <!-- 4. HOME DASHBOARD -->
+        <div id="screen-home" class="screen">
+            <div class="px-6 pt-6 pb-2">
+                <h2 class="text-2xl font-bold text-slate-900">Discover</h2>
+                <p class="text-slate-500 text-sm">Best parking spots in <span class="text-blue-600 font-bold">New
+                        York</span></p>
+            </div>
+            <div class="px-6 space-y-4 pb-20 mt-4">
+                <!-- Card 1 -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                                <i class="fas fa-parking text-xl"></i></div>
+                            <div>
+                                <h3 class="font-bold text-slate-900">Downtown Garage</h3>
+                                <p class="text-xs text-slate-500">123 Broadway, NYC</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-green-600 font-bold text-sm bg-green-50 px-2 py-1 rounded-lg">Open</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between mt-4 p-3 bg-gray-50 rounded-xl">
+                        <div class="text-center">
+                            <div class="text-lg font-bold text-slate-800">15</div>
+                            <div class="text-[10px] text-slate-400 font-bold uppercase">Available</div>
+                        </div>
+                        <div class="w-px h-8 bg-gray-200"></div>
+                        <div class="text-center">
+                            <div class="text-lg font-bold text-slate-500">200</div>
+                            <div class="text-[10px] text-slate-400 font-bold uppercase">Total</div>
+                        </div>
+                        <button onclick="app.goToBooking('Downtown Garage')"
+                            class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 shadow-md shadow-blue-600/20">Book</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: BOOKING SCREEN -->
+        <div id="screen-booking" class="screen p-6 pb-24">
+            <div class="flex items-center space-x-4 mb-6">
+                <button onclick="app.navTo('home')"
+                    class="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50"><i
+                        class="fas fa-arrow-left text-slate-600"></i></button>
+                <div class="font-bold text-lg">Book Parking</div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
+                <h3 class="font-bold text-blue-900" id="booking-lot-name">Parking Lot Name</h3>
+                <p class="text-sm text-blue-600"><i class="fas fa-clock mr-1"></i> Rate: $5.00 / hour</p>
+            </div>
+
+            <form onsubmit="app.confirmBooking(event)" class="space-y-6">
+                <!-- Number Plate -->
+                <div class="space-y-2">
+                    <label class="text-sm font-bold text-slate-700 uppercase">Vehicle Plate Number</label>
+                    <div class="input-group">
+                        <i class="fas fa-car input-icon"></i>
+                        <input type="text"
+                            class="w-full bg-white border border-gray-200 rounded-xl p-4 input-field font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="ABC-1234" required>
+                    </div>
+                    <p class="text-xs text-slate-400 pl-1">Enter plate number without spaces</p>
+                </div>
+
+                <!-- Duration -->
+                <div class="space-y-2">
+                    <label class="text-sm font-bold text-slate-700 uppercase">Duration (Hours)</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button type="button" onclick="app.selectDuration(1, this)"
+                            class="duration-btn bg-white border border-gray-200 py-3 rounded-lg font-bold text-slate-600 hover:border-blue-500 hover:text-blue-600 active-duration">1h</button>
+                        <button type="button" onclick="app.selectDuration(2, this)"
+                            class="duration-btn bg-white border border-gray-200 py-3 rounded-lg font-bold text-slate-600 hover:border-blue-500 hover:text-blue-600">2h</button>
+                        <button type="button" onclick="app.selectDuration(4, this)"
+                            class="duration-btn bg-white border border-gray-200 py-3 rounded-lg font-bold text-slate-600 hover:border-blue-500 hover:text-blue-600">4h</button>
+                        <button type="button" onclick="app.selectDuration(8, this)"
+                            class="duration-btn bg-white border border-gray-200 py-3 rounded-lg font-bold text-slate-600 hover:border-blue-500 hover:text-blue-600">8h</button>
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="border-t border-gray-200 pt-4 flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Total Cost</span>
+                    <span class="text-2xl font-bold text-slate-900" id="booking-total">$5.00</span>
+                </div>
+
+                <button type="submit"
+                    class="w-full text-white bg-blue-600 hover:bg-blue-700 font-bold rounded-xl text-lg px-5 py-4 text-center shadow-lg shadow-blue-600/30 transition-transform active:scale-[0.98]">
+                    Confirm Booking
+                </button>
+            </form>
+        </div>
+
+        <!-- 5. SEARCH SCREEN -->
+        <div id="screen-search" class="screen">
+            <div class="px-6 pt-6 mb-6">
+                <h2 class="text-2xl font-bold text-slate-900">Search</h2>
+                <p class="text-slate-500 text-sm">Find parking in other cities</p>
+            </div>
+            <div class="px-6 space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 space-y-5">
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-400 uppercase">State</label>
+                        <select
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium outline-none">
+                            <option>New York</option>
+                            <option>California</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-400 uppercase">City</label>
+                        <select
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium outline-none">
+                            <option>New York City</option>
+                            <option>Buffalo</option>
+                        </select>
+                    </div>
+                    <button onclick="app.navTo('results-list')"
+                        class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/30">Search
+                        Parking</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5b. RESULT LIST MOCK -->
+        <div id="screen-results-list" class="screen">
+            <div class="p-4 flex items-center space-x-4">
+                <button onclick="app.navTo('search')"
+                    class="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50"><i
+                        class="fas fa-arrow-left text-slate-600"></i></button>
+                <div class="font-bold text-lg">Results</div>
+            </div>
+            <div class="p-6 text-center text-gray-400 text-sm">Mock Results List</div>
+        </div>
+
+        <!-- 6. RESERVATIONS SCREEN -->
+        <div id="screen-reservations" class="screen">
+            <div class="px-6 pt-6 mb-4">
+                <h2 class="text-2xl font-bold text-slate-900">Bookings</h2>
+            </div>
+            <div class="px-6 mb-6">
+                <div class="flex bg-gray-100 p-1 rounded-xl">
+                    <button
+                        class="flex-1 py-2 rounded-lg bg-white text-slate-900 font-bold text-xs shadow-sm">Active</button>
+                    <button
+                        class="flex-1 py-2 rounded-lg text-slate-500 font-bold text-xs hover:text-slate-700">History</button>
+                </div>
+            </div>
+            <div class="px-6">
+                <div class="bg-white p-5 rounded-2xl shadow-md border border-gray-100 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span
+                                class="text-[10px] font-bold tracking-wider text-green-600 uppercase bg-green-50 px-2 py-1 rounded">Active</span>
+                            <h3 class="font-bold text-lg text-slate-900 mt-2">Downtown Garage</h3>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-slate-400 font-bold uppercase">Time Left</div>
+                            <div class="text-xl font-mono font-bold text-slate-800">00:54:12</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3 flex justify-between items-center mb-4">
+                        <div class="text-center flex-1 border-r border-gray-200">
+                            <div class="text-[10px] text-slate-400 uppercase font-bold">Slot</div>
+                            <div class="text-lg font-bold text-blue-600">A-14</div>
+                        </div>
+                        <div class="text-center flex-1">
+                            <div class="text-[10px] text-slate-400 uppercase font-bold">Floor</div>
+                            <div class="text-lg font-bold text-slate-700">L1</div>
+                        </div>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button
+                            class="flex-1 py-3 border border-gray-200 rounded-xl font-bold text-xs text-slate-600 hover:bg-gray-50">Directions</button>
+                        <button
+                            class="flex-1 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. PROFILE -->
+        <div id="screen-profile" class="screen">
+            <div class="p-6 pt-10 text-center">
+                <div class="relative w-24 h-24 mx-auto mb-4">
+                    <div
+                        class="w-full h-full bg-blue-100 rounded-full flex items-center justify-center text-blue-500 text-3xl font-bold">
+                        M</div>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900">Mohsin</h2>
+                <p class="text-slate-500 text-sm">mohsin@example.com</p>
+            </div>
+            <div class="px-6 space-y-2">
+                <button
+                    class="w-full flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:bg-gray-50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600"><i
+                                class="fas fa-user-edit text-sm"></i></div><span
+                            class="font-bold text-sm text-slate-700">Edit Profile</span>
+                    </div>
+                </button>
+                <div class="pt-6"><button onclick="app.logout()"
+                        class="w-full bg-red-50 text-red-600 font-bold py-4 rounded-xl hover:bg-red-100 transition">Log
+                        Out</button></div>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav id="bottom-nav"
+            class="hidden absolute bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 flex justify-around items-center h-[80px] pb-4 z-40">
+            <button onclick="app.navTo('home')" id="nav-home"
+                class="nav-btn w-full h-full flex flex-col items-center justify-center text-blue-600"><i
+                    class="fas fa-home text-xl mb-1"></i><span class="text-[10px] font-bold">Home</span></button>
+            <button onclick="app.navTo('search')" id="nav-search"
+                class="nav-btn w-full h-full flex flex-col items-center justify-center text-slate-400 hover:text-blue-500"><i
+                    class="fas fa-search text-xl mb-1"></i><span class="text-[10px] font-bold">Search</span></button>
+            <button onclick="app.navTo('reservations')" id="nav-reservations"
+                class="nav-btn w-full h-full flex flex-col items-center justify-center text-slate-400 hover:text-blue-500"><i
+                    class="fas fa-ticket-alt text-xl mb-1"></i><span
+                    class="text-[10px] font-bold">Bookings</span></button>
+            <button onclick="app.navTo('profile')" id="nav-profile"
+                class="nav-btn w-full h-full flex flex-col items-center justify-center text-slate-400 hover:text-blue-500"><i
+                    class="fas fa-user text-xl mb-1"></i><span class="text-[10px] font-bold">Profile</span></button>
+        </nav>
+
+    </div>
+
+    <!-- APP LOGIC -->
+    <script>
+        const app = {
+            currentScreen: 'login',
+            currentRate: 5,
+
+            navTo: function (screenId) {
+                document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+                document.getElementById('screen-' + screenId).classList.add('active');
+
+                const nav = document.getElementById('bottom-nav');
+                const isAuthScreen = ['login', 'signup', 'forgot-password'].includes(screenId);
+
+                if (isAuthScreen) {
+                    nav.classList.add('hidden');
+                } else {
+                    nav.classList.remove('hidden');
+                    document.querySelectorAll('.nav-btn').forEach(btn => { btn.classList.remove('text-blue-600'); btn.classList.add('text-slate-400'); });
+
+                    let activeId = 'nav-home';
+                    if (screenId.includes('search') || screenId.includes('results')) activeId = 'nav-search';
+                    if (screenId === 'reservations' || screenId === 'booking') activeId = 'nav-reservations';
+                    if (screenId === 'profile') activeId = 'nav-profile';
+
+                    const btn = document.getElementById(activeId);
+                    if (btn) { btn.classList.remove('text-slate-400'); btn.classList.add('text-blue-600'); }
+                }
+                window.scrollTo(0, 0);
+            },
+
+            login: function (e) {
+                e.preventDefault();
+                const btn = e.target.querySelector('button[type="submit"]');
+                const originalText = btn.innerText;
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+                setTimeout(() => { this.navTo('home'); btn.innerText = originalText; }, 1000);
+            },
+
+            signup: function (e) {
+                e.preventDefault();
+                // ... same signup logic ...
+                this.navTo('home');
+            },
+
+            forgotPassword: function (e) {
+                e.preventDefault();
+                alert('Reset link sent.');
+                this.navTo('login');
+            },
+
+            logout: function () {
+                if (confirm('Log out?')) this.navTo('login');
+            },
+
+            // BOOKING LOGIC
+            goToBooking: function (lotName) {
+                document.getElementById('booking-lot-name').innerText = lotName;
+                this.navTo('booking');
+            },
+
+            selectDuration: function (hours, btn) {
+                // Reset styles
+                document.querySelectorAll('.duration-btn').forEach(b => {
+                    b.classList.remove('bg-blue-50', 'border-blue-500', 'text-blue-600');
+                    b.classList.add('bg-white', 'border-gray-200', 'text-slate-600');
+                });
+                // Set Active
+                btn.classList.remove('bg-white', 'border-gray-200', 'text-slate-600');
+                btn.classList.add('bg-blue-50', 'border-blue-500', 'text-blue-600');
+
+                // Update Total
+                const total = hours * this.currentRate;
+                document.getElementById('booking-total').innerText = '$' + total.toFixed(2);
+            },
+
+            confirmBooking: function (e) {
+                e.preventDefault();
+                const btn = e.target.querySelector('button[type="submit"]');
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
+
+                setTimeout(() => {
+                    this.navTo('reservations');
+                    btn.innerHTML = 'Confirm Booking';
+                    // Reset form mock
+                    e.target.reset();
+                    // Reset Total
+                    document.getElementById('booking-total').innerText = '$5.00';
+                }, 1500);
+            }
+        };
+    </script>
+</body>
+
+</html>

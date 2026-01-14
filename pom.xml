@@ -8,7 +8,7 @@
 		<version>4.0.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.example</groupId>
+	<groupId>unipi.lsmdb</groupId>
 	<artifactId>SPFS</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>SPFS</name>
