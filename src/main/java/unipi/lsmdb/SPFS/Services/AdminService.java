@@ -39,21 +39,16 @@ public class AdminService {
         @Autowired
         private MongoTemplate mongoTemplate;
 
-        // --- CRUD Create: Add Lot and Initialize Redis ---
         public ParkingLot createLot(ParkingLot lot, String cityName, String state) {
-                // 0. Constraint: Check if parking lot with same name exists
+
                 if (parkingLotRepository.existsByParkingName(lot.getParkingName())) {
                         throw new RuntimeException(
                                         "Error: Parking lot with name '" + lot.getParkingName() + "' already exists.");
                 }
 
-                // 1. Save the new Lot and get its generated ID
-                // Ensure the lot object has NO cityId initially.
                 lot.setAvailableSlots(lot.getTotalCapacity());
-                ParkingLot savedLot = parkingLotRepository.save(lot); // Lot is now in DB with _id
+                ParkingLot savedLot = parkingLotRepository.save(lot);
 
-                // 2. Find or Create the City Document (Crucial Linking Step)
-                // Optimization: Use the Index (State Only)
                 java.util.List<City> citiesInState = cityRepository.findByState(state);
 
                 City city = citiesInState.stream()
@@ -68,18 +63,12 @@ public class AdminService {
                                         return cityRepository.save(newCity);
                                 });
 
-                // 3. Update the City document with the new Lot ID (Document Linking)
-                // $push the Lot ID into the City's parkingLotIds array
-                // 3. Update the City document with the new Lot ID (Document Linking)
-                // Replaced mongoTemplate $push with repository.save() to handle schema mismatch
-                // (String vs Array)
                 if (city.getParkingLotIds() == null) {
                         city.setParkingLotIds(new java.util.ArrayList<>());
                 }
                 city.getParkingLotIds().add(savedLot.getId());
-                cityRepository.save(city); // Overwrites the document, fixing the field type if it was corrupted
+                cityRepository.save(city);
 
-                // --- NEW STEP: Automatic Slot Generation ---
                 int capacity = savedLot.getTotalCapacity();
                 java.util.List<unipi.lsmdb.SPFS.Entities.Slot> newSlots = new java.util.ArrayList<>();
                 java.util.List<String> slotIds = new java.util.ArrayList<>();
@@ -88,11 +77,9 @@ public class AdminService {
                         unipi.lsmdb.SPFS.Entities.Slot slot = new unipi.lsmdb.SPFS.Entities.Slot();
                         slot.setSlotNumber("A-" + i);
                         slot.setStatus("AVAILABLE");
-                        // REMOVED: slot.setParkingLotId(savedLot.getId()) as per user request
                         newSlots.add(slot);
                 }
 
-                // Save all slots in bulk for performance
                 java.util.List<unipi.lsmdb.SPFS.Entities.Slot> savedSlots = slotRepository.saveAll(newSlots);
 
                 // Extract IDs
@@ -116,7 +103,6 @@ public class AdminService {
                 return savedLot;
         }
 
-        // --- CRUD Read: Get All Lots with Merged Status (Paginated) ---
         public org.springframework.data.domain.Page<unipi.lsmdb.SPFS.DTO.ParkingLotResponseDTO> getAllLotsWithLiveStatus(
                         org.springframework.data.domain.Pageable pageable) {
                 org.springframework.data.domain.Page<ParkingLot> page = parkingLotRepository.findAll(pageable);
@@ -131,7 +117,6 @@ public class AdminService {
                                         dto.setTotalCapacity(lot.getTotalCapacity());
                                         dto.setSlotIds(lot.getSlotIds());
 
-                                        // 1. Sync Redis Status (AP Fallback)
                                         try {
                                                 Long available = redisTemplate.opsForSet()
                                                                 .size("lot:slots:" + lot.getId());
@@ -175,7 +160,6 @@ public class AdminService {
         @Autowired
         private unipi.lsmdb.SPFS.Repositories.ReservationRepository reservationRepository;
 
-        // --- DELETE PARKING LOT (Cascading) ---
         public void deleteParkingLot(String parkingLotId) {
                 // 1. Fetch Lot
                 ParkingLot lot = parkingLotRepository.findById(parkingLotId)
@@ -186,29 +170,23 @@ public class AdminService {
                         slotRepository.deleteAllById(lot.getSlotIds());
                 }
 
-                // 3. Cancel Active Reservations & Release User Locks
                 List<unipi.lsmdb.SPFS.Entities.Reservations> activeReservations = reservationRepository
                                 .findByParkingLotIdAndReservationStatus(parkingLotId, "ACTIVE");
 
                 for (unipi.lsmdb.SPFS.Entities.Reservations res : activeReservations) {
-                        // Update DB Status
                         res.setReservationStatus("CANCELLED");
                         reservationRepository.save(res);
 
-                        // Release User Lock in Redis
                         String userLockKey = "user:active_booking:" + res.getUserId();
                         redisTemplate.delete(userLockKey);
                 }
 
-                // 4. Update City (Remove Lot ID)
                 Query query = new Query(Criteria.where("parkingLotIds").is(parkingLotId));
                 Update update = new Update().pull("parkingLotIds", parkingLotId);
                 mongoTemplate.updateMulti(query, update, City.class);
 
-                // 5. Delete Redis Key for the Lot
                 redisTemplate.delete("lot:slots:" + parkingLotId);
 
-                // 6. Delete Lot
                 parkingLotRepository.deleteById(parkingLotId);
         }
 
@@ -357,9 +335,6 @@ public class AdminService {
                 return results.getMappedResults();
         }
 
-        // 3. User Loyalty Distribution (Statistical: $bucket - Manual implementation
-        // via
-        // Conditional)
         public List<Map> getUserLoyaltyDistribution() {
 
                 Aggregation aggregation = Aggregation.newAggregation(
@@ -397,9 +372,8 @@ public class AdminService {
                 return results.getMappedResults();
         }
 
-        // 4. Sync Redis with MongoDB & Fix Schema Data
         public void syncDatabaseToRedis() {
-                // --- 1. Fix Schema Corruption (String -> Array) for Cities and ParkingLots ---
+
                 fixCollectionSchema("cities", "parkingLotIds");
                 fixCollectionSchema("parking_lots", "slotIds");
 
@@ -408,16 +382,12 @@ public class AdminService {
                 for (ParkingLot lot : allLots) {
                         String redisKey = "lot:slots:" + lot.getId();
 
-                        // Only refill if empty or logic demands. Checking key existence prevents
-                        // overwriting.
                         if (!redisTemplate.hasKey(redisKey) && lot.getSlotIds() != null
                                         && !lot.getSlotIds().isEmpty()) {
 
-                                // Fetch full slot objects using the list of IDs
                                 List<unipi.lsmdb.SPFS.Entities.Slot> slots = slotRepository
                                                 .findAllById(lot.getSlotIds());
 
-                                // Filter for AVAILABLE slots
                                 List<String> availableSlotNumbers = slots.stream()
                                                 .filter(s -> "AVAILABLE".equals(s.getStatus()))
                                                 .map(unipi.lsmdb.SPFS.Entities.Slot::getSlotNumber)

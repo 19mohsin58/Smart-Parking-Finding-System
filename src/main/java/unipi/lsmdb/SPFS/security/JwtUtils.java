@@ -12,7 +12,6 @@ import java.util.Date;
 @Component
 public class JwtUtils {
 
-    // IMPORTANT: Change this secure key in application.properties!
     @Value("${jwt.secret:QzRmBGJFviiO62cgM0YY5WypcyvtUUjfkI5aDJgwt4dLz6BQKuaKChKynUlhzQzRmBGJFviiO62cgM0YY5WypcyvtUUjfkI5aDJgwt4dLz6BQKuaKChKynUlhz}")
     private String jwtSecret;
 
@@ -46,8 +45,8 @@ public class JwtUtils {
             Jwts.parserBuilder().setSigningKey(key()).build().parse(authToken);
             return true;
         } catch (MalformedJwtException | ExpiredJwtException | UnsupportedJwtException | IllegalArgumentException e) {
-            // Log the error
+            System.err.println("DEBUG JWT: " + e.getMessage());
+            return false;
         }
-        return false;
     }
 }
