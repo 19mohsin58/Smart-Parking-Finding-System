@@ -14,6 +14,7 @@ import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -107,6 +108,19 @@ public class AdminService {
                         org.springframework.data.domain.Pageable pageable) {
                 org.springframework.data.domain.Page<ParkingLot> page = parkingLotRepository.findAll(pageable);
 
+                // Check Redis Availability Once
+                boolean isRedisOnline = false;
+                try (RedisConnection connection = redisTemplate.getConnectionFactory().getConnection()) {
+                        String response = connection.ping();
+                        if ("PONG".equals(response)) {
+                                isRedisOnline = true;
+                        }
+                } catch (Exception e) {
+                        System.err.println("Redis is globally unavailable. Skipping individual checks.");
+                }
+
+                final boolean redisStatus = isRedisOnline;
+
                 // Convert to DTOs and Merge Data
                 java.util.List<unipi.lsmdb.SPFS.DTO.ParkingLotResponseDTO> dtos = page.getContent().stream()
                                 .map(lot -> {
@@ -117,18 +131,23 @@ public class AdminService {
                                         dto.setTotalCapacity(lot.getTotalCapacity());
                                         dto.setSlotIds(lot.getSlotIds());
 
-                                        try {
-                                                Long available = redisTemplate.opsForSet()
-                                                                .size("lot:slots:" + lot.getId());
-                                                if (available != null) {
-                                                        dto.setAvailableSlots(available.intValue());
-                                                } else {
+                                        if (redisStatus) {
+                                                try {
+                                                        Long available = redisTemplate.opsForSet()
+                                                                        .size("lot:slots:" + lot.getId());
+                                                        if (available != null) {
+                                                                dto.setAvailableSlots(available.intValue());
+                                                        } else {
+                                                                dto.setAvailableSlots(lot.getAvailableSlots());
+                                                        }
+                                                } catch (Exception e) {
+                                                        System.err.println(
+                                                                        "Warning: Redis is unavailable. Serving stale data for admin lot "
+                                                                                        + lot.getId());
                                                         dto.setAvailableSlots(lot.getAvailableSlots());
                                                 }
-                                        } catch (Exception e) {
-                                                System.err.println(
-                                                                "Warning: Redis is unavailable. Serving stale data for admin lot "
-                                                                                + lot.getId());
+                                        } else {
+                                                // Redis is down, use MongoDB fallback directly
                                                 dto.setAvailableSlots(lot.getAvailableSlots());
                                         }
 
