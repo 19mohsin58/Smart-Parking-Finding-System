@@ -37,9 +37,7 @@ public class AdminController {
                 .getAllLotsWithLiveStatus(pageable);
         return ResponseEntity.ok(lotsWithLiveStatus);
     }
-    // (Implement PUT/DELETE to complete CRUD)
 
-    // --- User Management (Admin Read Access) ---
     @GetMapping("/users")
     public ResponseEntity<List<Users>> getAllUsers() {
         return ResponseEntity.ok(adminService.findAllUsers());

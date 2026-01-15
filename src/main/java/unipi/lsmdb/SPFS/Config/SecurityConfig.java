@@ -51,14 +51,25 @@ public class SecurityConfig {
         return new AuthTokenFilter();
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private unipi.lsmdb.SPFS.security.AuthEntryPointJwt unauthorizedHandler;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private unipi.lsmdb.SPFS.security.CustomAccessDeniedHandler accessDeniedHandler;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
-                // CRITICAL: Set session management to STATELESS for JWT
+
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(unauthorizedHandler) // For 401
+                        .accessDeniedHandler(accessDeniedHandler) // For 403
+                )
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -70,7 +81,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
                         .anyRequest().authenticated());
 
-        // Register the JWT filter to run before the standard Spring Security filter
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

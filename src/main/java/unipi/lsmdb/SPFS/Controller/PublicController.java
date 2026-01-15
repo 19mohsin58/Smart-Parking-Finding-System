@@ -105,11 +105,9 @@ public class PublicController {
     @Autowired
     private org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
 
-    // --- Cascading Dropdown APIs ---
-
     @GetMapping("/states")
     public ResponseEntity<List<String>> getStates() {
-        // Return distinct states (All are assumed US)
+        // Return distinct states
         List<String> states = mongoTemplate.findDistinct(new org.springframework.data.mongodb.core.query.Query(),
                 "state", City.class, String.class);
         return ResponseEntity.ok(states);
@@ -243,8 +241,6 @@ public class PublicController {
                 dto.setAvailableSlots(lot.getAvailableSlots());
             }
 
-            // 2. Populate City Info
-            // 2. Populate City Name
             dto.setCityName(city.getCityName());
 
             return dto;

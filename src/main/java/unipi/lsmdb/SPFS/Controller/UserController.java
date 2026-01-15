@@ -44,13 +44,9 @@ public class UserController {
         Users user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
 
         if (user.getCity() == null) {
-            // Return empty list if no city assigned (or 400 based on preference, but empty
-            // list is friendlier)
             return ResponseEntity.ok(java.util.List.of());
         }
 
-        // We must fetch full city to get parkingLotIds because embedded city is 'lite'
-        // (no IDs)
         unipi.lsmdb.SPFS.Entities.City city = cityRepository.findById(user.getCity().getId()).orElse(null);
         if (city == null || city.getParkingLotIds() == null || city.getParkingLotIds().isEmpty()) {
             return ResponseEntity.ok(java.util.List.of());
@@ -59,7 +55,7 @@ public class UserController {
         java.util.List<unipi.lsmdb.SPFS.Entities.ParkingLot> parkingLots = parkingLotRepository
                 .findAllById(city.getParkingLotIds());
 
-        // Convert to DTOs
+        // Converting to DTOs
         java.util.List<unipi.lsmdb.SPFS.DTO.ParkingLotResponseDTO> dtos = parkingLots.stream().map(lot -> {
             unipi.lsmdb.SPFS.DTO.ParkingLotResponseDTO dto = new unipi.lsmdb.SPFS.DTO.ParkingLotResponseDTO();
             dto.setId(lot.getId());
